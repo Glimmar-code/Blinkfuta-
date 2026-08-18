@@ -35,32 +35,32 @@ class SupabaseService {
     }
 
     suspend fun fetchFeedPosts(): List<FeedPost> = withContext(Dispatchers.IO) {
-        try {
-            // First try feed_posts, fallback to posts
-            val endpoints = listOf(
-                "/rest/v1/feed_posts?select=*&order=created_at.desc&limit=50",
-                "/rest/v1/posts?select=*&order=created_at.desc&limit=50"
-            )
+        val endpoints = listOf(
+            "/rest/v1/feed_posts?select=*&order=created_at.desc&limit=50",
+            "/rest/v1/posts?select=*&order=created_at.desc&limit=50",
+            "/rest/v1/feeds?select=*&order=created_at.desc&limit=50"
+        )
 
-            for (endpoint in endpoints) {
+        for (endpoint in endpoints) {
+            try {
                 val request = newRequestBuilder(endpoint).get().build()
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        val body = response.body?.string() ?: ""
-                        if (body.isNotBlank() && body != "[]") {
+                        val body = response.body?.string().orEmpty()
+                        if (body.isNotBlank() && body != "[]" && body != "null") {
                             val jsonArray = JSONArray(body)
                             val posts = mutableListOf<FeedPost>()
                             for (i in 0 until jsonArray.length()) {
-                                val obj = jsonArray.getJSONObject(i)
-                                posts.add(parseFeedPost(obj))
+                                val obj = jsonArray.optJSONObject(i) ?: continue
+                                parseFeedPost(obj)?.let { posts.add(it) }
                             }
                             if (posts.isNotEmpty()) return@withContext posts
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("SupabaseService", "fetchFeedPosts failed on $endpoint: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("SupabaseService", "Error fetching feed posts: ${e.message}")
         }
         emptyList()
     }
@@ -75,7 +75,7 @@ class SupabaseService {
         try {
             val json = JSONObject().apply {
                 put("type", if (!imageUrl.isNullOrBlank()) "photo" else "text")
-                put("faculty", facultyTag)
+                put("faculty", facultyTag.ifBlank { "SIMME" })
                 put("text", text)
                 if (!imageUrl.isNullOrBlank()) {
                     put("image_url", imageUrl)
@@ -84,6 +84,8 @@ class SupabaseService {
                 put("like_count", 0)
                 put("comment_count", 0)
                 put("share_count", 0)
+                put("username", author)
+                put("avatar_url", authorAvatar)
             }
 
             val body = json.toString().toRequestBody(jsonMediaType)
@@ -102,82 +104,91 @@ class SupabaseService {
     }
 
     suspend fun fetchProfiles(): List<UserProfile> = withContext(Dispatchers.IO) {
-        try {
-            val request = newRequestBuilder("/rest/v1/profiles?select=*&limit=50").get().build()
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val body = response.body?.string() ?: ""
-                    if (body.isNotBlank() && body != "[]") {
-                        val jsonArray = JSONArray(body)
-                        val list = mutableListOf<UserProfile>()
-                        for (i in 0 until jsonArray.length()) {
-                            val obj = jsonArray.getJSONObject(i)
-                            list.add(parseUserProfile(obj))
+        val endpoints = listOf(
+            "/rest/v1/profiles?select=*&limit=50",
+            "/rest/v1/users?select=*&limit=50",
+            "/rest/v1/students?select=*&limit=50"
+        )
+        for (endpoint in endpoints) {
+            try {
+                val request = newRequestBuilder(endpoint).get().build()
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string().orEmpty()
+                        if (body.isNotBlank() && body != "[]" && body != "null") {
+                            val jsonArray = JSONArray(body)
+                            val list = mutableListOf<UserProfile>()
+                            for (i in 0 until jsonArray.length()) {
+                                val obj = jsonArray.optJSONObject(i) ?: continue
+                                parseUserProfile(obj)?.let { list.add(it) }
+                            }
+                            if (list.isNotEmpty()) return@withContext list
                         }
-                        if (list.isNotEmpty()) return@withContext list
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("SupabaseService", "fetchProfiles failed on $endpoint: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("SupabaseService", "Error fetching profiles: ${e.message}")
         }
         emptyList()
     }
 
     suspend fun fetchLeaderboard(): List<LeaderboardUser> = withContext(Dispatchers.IO) {
-        try {
-            val endpoints = listOf(
-                "/rest/v1/leaderboard?select=*&order=points.desc&limit=50",
-                "/rest/v1/rankings?select=*&order=points.desc&limit=50"
-            )
-            for (endpoint in endpoints) {
+        val endpoints = listOf(
+            "/rest/v1/leaderboard?select=*&order=points.desc&limit=50",
+            "/rest/v1/rankings?select=*&order=points.desc&limit=50",
+            "/rest/v1/ranks?select=*&order=points.desc&limit=50"
+        )
+        for (endpoint in endpoints) {
+            try {
                 val request = newRequestBuilder(endpoint).get().build()
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        val body = response.body?.string() ?: ""
-                        if (body.isNotBlank() && body != "[]") {
+                        val body = response.body?.string().orEmpty()
+                        if (body.isNotBlank() && body != "[]" && body != "null") {
                             val jsonArray = JSONArray(body)
                             val list = mutableListOf<LeaderboardUser>()
                             for (i in 0 until jsonArray.length()) {
-                                val obj = jsonArray.getJSONObject(i)
-                                list.add(parseLeaderboardUser(obj, i + 1))
+                                val obj = jsonArray.optJSONObject(i) ?: continue
+                                parseLeaderboardUser(obj, i + 1)?.let { list.add(it) }
                             }
                             if (list.isNotEmpty()) return@withContext list
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("SupabaseService", "fetchLeaderboard failed on $endpoint: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("SupabaseService", "Error fetching leaderboard: ${e.message}")
         }
         emptyList()
     }
 
     suspend fun fetchMarketItems(): List<MarketItem> = withContext(Dispatchers.IO) {
-        try {
-            val endpoints = listOf(
-                "/rest/v1/market_items?select=*&order=created_at.desc&limit=50",
-                "/rest/v1/products?select=*&order=created_at.desc&limit=50"
-            )
-            for (endpoint in endpoints) {
+        val endpoints = listOf(
+            "/rest/v1/market_items?select=*&order=created_at.desc&limit=50",
+            "/rest/v1/products?select=*&order=created_at.desc&limit=50",
+            "/rest/v1/market?select=*&order=created_at.desc&limit=50"
+        )
+        for (endpoint in endpoints) {
+            try {
                 val request = newRequestBuilder(endpoint).get().build()
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        val body = response.body?.string() ?: ""
-                        if (body.isNotBlank() && body != "[]") {
+                        val body = response.body?.string().orEmpty()
+                        if (body.isNotBlank() && body != "[]" && body != "null") {
                             val jsonArray = JSONArray(body)
                             val list = mutableListOf<MarketItem>()
                             for (i in 0 until jsonArray.length()) {
-                                val obj = jsonArray.getJSONObject(i)
-                                list.add(parseMarketItem(obj))
+                                val obj = jsonArray.optJSONObject(i) ?: continue
+                                parseMarketItem(obj)?.let { list.add(it) }
                             }
                             if (list.isNotEmpty()) return@withContext list
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("SupabaseService", "fetchMarketItems failed on $endpoint: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("SupabaseService", "Error fetching market items: ${e.message}")
         }
         emptyList()
     }
@@ -215,53 +226,58 @@ class SupabaseService {
     }
 
     suspend fun fetchMessages(): List<ChatConversation> = withContext(Dispatchers.IO) {
-        try {
-            val request = newRequestBuilder("/rest/v1/messages?select=*&order=created_at.desc&limit=100").get().build()
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val body = response.body?.string() ?: ""
-                    if (body.isNotBlank() && body != "[]") {
-                        val jsonArray = JSONArray(body)
-                        // Group messages by partner or conversation
-                        val convosMap = mutableMapOf<String, MutableList<ChatMessage>>()
-                        for (i in 0 until jsonArray.length()) {
-                            val obj = jsonArray.getJSONObject(i)
-                            val sender = obj.optString("sender_username", obj.optString("sender_id", "user"))
-                            val receiver = obj.optString("receiver_username", "you")
-                            val partner = if (sender == "efe.design" || sender == "user_me") receiver else sender
-                            val text = obj.optString("text", obj.optString("content", ""))
-                            val time = obj.optString("created_at", "Just now")
-                            val isMe = sender == "efe.design" || sender == "user_me"
-                            val msg = ChatMessage(
-                                id = obj.optString("id", System.currentTimeMillis().toString()),
-                                senderId = sender,
-                                text = text,
-                                timestamp = formatTimeAgo(time),
-                                isFromMe = isMe
-                            )
-                            convosMap.getOrPut(partner) { mutableListOf() }.add(msg)
-                        }
+        val endpoints = listOf(
+            "/rest/v1/messages?select=*&order=created_at.desc&limit=100",
+            "/rest/v1/chats?select=*&order=created_at.desc&limit=100"
+        )
+        for (endpoint in endpoints) {
+            try {
+                val request = newRequestBuilder(endpoint).get().build()
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string().orEmpty()
+                        if (body.isNotBlank() && body != "[]" && body != "null") {
+                            val jsonArray = JSONArray(body)
+                            val convosMap = mutableMapOf<String, MutableList<ChatMessage>>()
+                            for (i in 0 until jsonArray.length()) {
+                                val obj = jsonArray.optJSONObject(i) ?: continue
+                                val sender = obj.optString("sender_username", obj.optString("sender_id", "user"))
+                                val receiver = obj.optString("receiver_username", "you")
+                                val partner = if (sender == "efe.design" || sender == "user_me" || sender == "golowosile") receiver else sender
+                                val text = obj.optString("text", obj.optString("content", obj.optString("message", "")))
+                                val time = obj.optString("created_at", "Just now")
+                                val isMe = sender == "efe.design" || sender == "user_me" || sender == "golowosile"
+                                val msg = ChatMessage(
+                                    id = obj.optString("id", System.currentTimeMillis().toString()),
+                                    senderId = sender,
+                                    text = text,
+                                    timestamp = formatTimeAgo(time),
+                                    isFromMe = isMe
+                                )
+                                convosMap.getOrPut(partner) { mutableListOf() }.add(msg)
+                            }
 
-                        val conversations = convosMap.map { (partner, msgs) ->
-                            ChatConversation(
-                                id = "conv_$partner",
-                                partnerUsername = partner,
-                                partnerName = partner.replace(".", " ").capitalizeWords(),
-                                partnerAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop",
-                                isOnline = true,
-                                lastMessage = msgs.firstOrNull()?.text ?: "",
-                                lastMessageTime = msgs.firstOrNull()?.timestamp ?: "Just now",
-                                unreadCount = 0,
-                                isVerified = true,
-                                messages = msgs
-                            )
+                            val conversations = convosMap.map { (partner, msgs) ->
+                                ChatConversation(
+                                    id = "conv_$partner",
+                                    partnerUsername = partner,
+                                    partnerName = partner.replace(".", " ").replace("_", " ").capitalizeWords(),
+                                    partnerAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop",
+                                    isOnline = true,
+                                    lastMessage = msgs.firstOrNull()?.text ?: "",
+                                    lastMessageTime = msgs.firstOrNull()?.timestamp ?: "Just now",
+                                    unreadCount = 0,
+                                    isVerified = true,
+                                    messages = msgs
+                                )
+                            }
+                            if (conversations.isNotEmpty()) return@withContext conversations
                         }
-                        if (conversations.isNotEmpty()) return@withContext conversations
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("SupabaseService", "fetchMessages failed on $endpoint: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("SupabaseService", "Error fetching messages: ${e.message}")
         }
         emptyList()
     }
@@ -269,7 +285,7 @@ class SupabaseService {
     suspend fun sendMessage(receiverUsername: String, text: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val json = JSONObject().apply {
-                put("sender_username", "efe.design")
+                put("sender_username", "golowosile")
                 put("receiver_username", receiverUsername)
                 put("text", text)
                 put("created_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date()))
@@ -289,17 +305,19 @@ class SupabaseService {
         }
     }
 
-    private fun parseFeedPost(obj: JSONObject): FeedPost {
+    private fun parseFeedPost(obj: JSONObject): FeedPost? {
         val id = obj.optString("id", System.currentTimeMillis().toString())
-        val text = obj.optString("text", obj.optString("caption", ""))
-        val faculty = obj.optString("faculty", "SIMME")
-        val imageUrl = obj.optString("image_url", "")
-        val type = obj.optString("type", "")
+        val text = obj.optString("text", obj.optString("caption", obj.optString("content", obj.optString("body", ""))))
+        val faculty = obj.optString("faculty", obj.optString("faculty_tag", "SIMME")).ifBlank { "SIMME" }
+        val imageUrl = obj.optString("image_url", obj.optString("imageUrl", obj.optString("media_url", "")))
+        val type = obj.optString("type", "").lowercase()
         val isReel = type == "reel" || type == "video"
-        val author = obj.optString("username", obj.optString("author", "campus_creator"))
-        val avatar = obj.optString("avatar_url", obj.optString("author_avatar", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop"))
-        val likes = obj.optInt("like_count", obj.optInt("likes", 12))
-        val comments = obj.optInt("comment_count", obj.optInt("comments", 3))
+        val author = obj.optString("username", obj.optString("author", obj.optString("author_name", "campus_student"))).ifBlank { "student" }
+        val avatar = obj.optString("avatar_url", obj.optString("author_avatar", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop")).ifBlank {
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop"
+        }
+        val likes = obj.optInt("like_count", obj.optInt("likes", 14))
+        val comments = obj.optInt("comment_count", obj.optInt("comments", 2))
         val shares = obj.optInt("share_count", obj.optInt("shares", 1))
         val createdAt = obj.optString("created_at", "")
 
@@ -320,20 +338,39 @@ class SupabaseService {
         )
     }
 
-    private fun parseUserProfile(obj: JSONObject): UserProfile {
+    private fun parseUserProfile(obj: JSONObject): UserProfile? {
+        val id = obj.optString("id", "user_me")
+        val fullName = obj.optString("full_name", obj.optString("name", obj.optString("display_name", "Gbolahan Olowosile"))).ifBlank { "Gbolahan Olowosile" }
+        val username = obj.optString("username", obj.optString("user_name", "golowosile")).ifBlank { "golowosile" }
+        val avatarUrl = obj.optString("avatar_url", obj.optString("avatar", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop")).ifBlank {
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop"
+        }
+        val coverPhotoUrl = obj.optString("cover_photo_url", "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&h=400&fit=crop").ifBlank {
+            "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&h=400&fit=crop"
+        }
+        val faculty = obj.optString("faculty", "SIMME").ifBlank { "SIMME" }
+        val university = obj.optString("university", "University of Lagos (UNILAG)").ifBlank { "University of Lagos" }
+        val department = obj.optString("department", "Systems Engineering").ifBlank { "Systems Engineering" }
+        val academicLevel = obj.optString("academic_level", "400 Level").ifBlank { "400 Level" }
+        val bio = obj.optString("bio", "Connecting campus entrepreneurs, sharing reels, building the future on Blink 🚀").ifBlank {
+            "Connecting campus entrepreneurs, sharing reels, building the future on Blink 🚀"
+        }
+        val headline = obj.optString("professional_headline", "Student Innovator • Product Lead").ifBlank {
+            "Student Innovator • Product Lead"
+        }
+
         return UserProfile(
-            id = obj.optString("id", "user_me"),
-            fullName = obj.optString("full_name", obj.optString("name", "Efe Chukwu")),
-            username = obj.optString("username", "efe.design"),
-            avatarUrl = obj.optString("avatar_url", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop"),
-            coverPhotoUrl = obj.optString("cover_photo_url", "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&h=400&fit=crop"),
-            faculty = obj.optString("faculty", "Engineering"),
-            university = obj.optString("university", "University of Lagos (UNILAG)"),
-            department = obj.optString("department", "Systems Engineering"),
-            courseOfStudy = obj.optString("course_of_study", "B.Sc. Systems Engineering"),
-            academicLevel = obj.optString("academic_level", "400 Level"),
-            bio = obj.optString("bio", "Crafting digital experiences, campus entrepreneurship, building for the next billion users 🚀✨"),
-            professionalHeadline = obj.optString("professional_headline", "Product Designer • Creative Technologist"),
+            id = id,
+            fullName = fullName,
+            username = username,
+            avatarUrl = avatarUrl,
+            coverPhotoUrl = coverPhotoUrl,
+            faculty = faculty,
+            university = university,
+            department = department,
+            academicLevel = academicLevel,
+            bio = bio,
+            professionalHeadline = headline,
             followerCount = obj.optInt("follower_count", 2450),
             followingCount = obj.optInt("following_count", 380),
             profileViewsThisWeek = obj.optInt("profile_views", 312),
@@ -341,30 +378,44 @@ class SupabaseService {
         )
     }
 
-    private fun parseLeaderboardUser(obj: JSONObject, defaultRank: Int): LeaderboardUser {
+    private fun parseLeaderboardUser(obj: JSONObject, defaultRank: Int): LeaderboardUser? {
+        val username = obj.optString("username", "scholar_$defaultRank").ifBlank { "scholar_$defaultRank" }
+        val fullName = obj.optString("full_name", obj.optString("name", username.replace(".", " ").capitalizeWords())).ifBlank { "Campus Scholar" }
+        val avatar = obj.optString("avatar_url", obj.optString("avatar", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop")).ifBlank {
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop"
+        }
+        val points = obj.optInt("points", obj.optInt("score", 1200 - defaultRank * 60))
+
         return LeaderboardUser(
             rank = obj.optInt("rank", defaultRank),
-            username = obj.optString("username", "user_$defaultRank"),
-            fullName = obj.optString("full_name", obj.optString("name", "Campus Scholar")),
-            avatar = obj.optString("avatar_url", obj.optString("avatar", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop")),
-            points = obj.optInt("points", obj.optInt("score", 1000 - defaultRank * 50)),
-            faculty = obj.optString("faculty", "SIMME"),
+            username = username,
+            fullName = fullName,
+            avatar = avatar,
+            points = points,
+            faculty = obj.optString("faculty", "SIMME").ifBlank { "SIMME" },
             university = obj.optString("university", "University of Lagos"),
             level = obj.optString("level", "400 Level"),
             streakDays = obj.optInt("streak_days", 14)
         )
     }
 
-    private fun parseMarketItem(obj: JSONObject): MarketItem {
-        val imageUrl = obj.optString("image_url", "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&fit=crop")
+    private fun parseMarketItem(obj: JSONObject): MarketItem? {
+        val title = obj.optString("title", obj.optString("name", "Campus Item")).ifBlank { "Campus Item" }
+        val price = obj.optLong("price", 15000L)
+        val imageUrl = obj.optString("image_url", "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&fit=crop").ifBlank {
+            "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&fit=crop"
+        }
+        val sellerUsername = obj.optString("seller_username", "aluta_merchant").ifBlank { "aluta_merchant" }
+        val sellerName = obj.optString("seller_name", "Verified Student Seller").ifBlank { "Verified Student Seller" }
+
         return MarketItem(
             id = obj.optString("id", System.currentTimeMillis().toString()),
-            title = obj.optString("title", "Campus Item"),
-            price = obj.optLong("price", 15000L),
+            title = title,
+            price = price,
             images = listOf(imageUrl),
-            sellerUsername = obj.optString("seller_username", "aluta_merchant"),
+            sellerUsername = sellerUsername,
             sellerAvatar = obj.optString("seller_avatar", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop"),
-            sellerName = obj.optString("seller_name", "Verified Student Seller"),
+            sellerName = sellerName,
             sellerPhone = obj.optString("seller_phone", "+234 812 345 6789"),
             sellerWhatsapp = obj.optString("seller_whatsapp", "+2348123456789"),
             sellerIsVerified = true,

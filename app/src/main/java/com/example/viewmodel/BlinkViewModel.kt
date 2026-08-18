@@ -111,6 +111,57 @@ class BlinkViewModel : ViewModel() {
         }
     }
 
+    fun loginWithGoogle(email: String = "golowosile@gmail.com") {
+        val derivedUsername = email.substringBefore("@").replace(".", "_").lowercase()
+        val derivedFullName = email.substringBefore("@").replace(".", " ").capitalizeWords()
+        val updatedProfile = _uiState.value.myProfile.copy(
+            email = ContactField(email, true),
+            fullName = if (derivedFullName.isNotBlank()) derivedFullName else "Verified Student",
+            username = if (derivedUsername.isNotBlank()) derivedUsername else "campus_student"
+        )
+        _uiState.value = _uiState.value.copy(
+            myProfile = updatedProfile,
+            destination = AppDestination.MAIN
+        )
+        fetchSupabaseData()
+        showToast("✨ Signed in with Google as @${updatedProfile.username}")
+    }
+
+    fun loginWithEmail(email: String) {
+        val cleanEmail = if (email.isBlank()) "golowosile@gmail.com" else email.trim()
+        val derivedUsername = cleanEmail.substringBefore("@").replace(".", "_").lowercase()
+        val derivedFullName = cleanEmail.substringBefore("@").replace(".", " ").capitalizeWords()
+        val updatedProfile = _uiState.value.myProfile.copy(
+            email = ContactField(cleanEmail, true),
+            fullName = if (derivedFullName.isNotBlank()) derivedFullName else "Student",
+            username = if (derivedUsername.isNotBlank()) derivedUsername else "student_user"
+        )
+        _uiState.value = _uiState.value.copy(
+            myProfile = updatedProfile,
+            destination = AppDestination.MAIN
+        )
+        fetchSupabaseData()
+        showToast("✨ Signed in as @${updatedProfile.username}")
+    }
+
+    fun signUp(fullName: String, username: String, email: String, faculty: String) {
+        val cleanName = if (fullName.isNotBlank()) fullName.trim() else "Campus Student"
+        val cleanUsername = if (username.isNotBlank()) username.trim().lowercase() else "student_user"
+        val cleanEmail = if (email.isNotBlank()) email.trim() else "student@university.edu.ng"
+        val updatedProfile = _uiState.value.myProfile.copy(
+            fullName = cleanName,
+            username = cleanUsername,
+            email = ContactField(cleanEmail, true),
+            faculty = if (faculty.isNotBlank()) faculty else "SIMME"
+        )
+        _uiState.value = _uiState.value.copy(
+            myProfile = updatedProfile,
+            destination = AppDestination.MAIN
+        )
+        fetchSupabaseData()
+        showToast("🎓 Welcome to Blink, $cleanName!")
+    }
+
     fun showToast(message: String) {
         viewModelScope.launch {
             _snackBarMessages.emit(message)

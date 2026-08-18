@@ -4,7 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,8 +24,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -34,7 +31,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.models.kNigerianUniversitiesList
 import com.example.ui.components.BlinkMark
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
@@ -56,7 +52,7 @@ fun SplashScreen(
     )
 
     LaunchedEffect(Unit) {
-        delay(2000)
+        delay(1800)
         onTimeout()
     }
 
@@ -119,8 +115,7 @@ fun SplashScreen(
 fun OnboardingScreen(
     onSignInClick: () -> Unit,
     onSignUpClick: () -> Unit,
-    onGoogleSignIn: () -> Unit = onSignInClick,
-    onExploreAsGuest: () -> Unit
+    onGoogleSignIn: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -144,27 +139,21 @@ fun OnboardingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header
+            // Header (No Guest option - strictly authenticated entry)
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BlinkMark(size = 32.dp, showText = true)
-                TextButton(onClick = onExploreAsGuest) {
-                    Text(
-                        "Explore Guest",
-                        color = BlinkLavender,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.5.sp
-                    )
-                }
+                BlinkMark(size = 36.dp, showText = true)
             }
 
             // Center Hero
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(vertical = 16.dp)
+                modifier = Modifier.padding(vertical = 12.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -208,7 +197,7 @@ fun OnboardingScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Connect with students across Nigerian universities. Share Reels, flex your achievements, trade on ALUTA Market, and lead the campus rankings.",
+                    text = "Connect with students across Nigerian universities. Share live Reels, flex achievements, trade on ALUTA Market, and lead campus rankings.",
                     fontSize = 13.5.sp,
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp,
@@ -273,7 +262,7 @@ fun OnboardingScreen(
                         .testTag("onboarding_signin_btn")
                 ) {
                     Text(
-                        "Sign In",
+                        "Sign In with Email",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -288,10 +277,11 @@ fun OnboardingScreen(
 @Composable
 fun SignInScreen(
     onBack: () -> Unit,
-    onSuccess: () -> Unit,
+    onSuccess: (email: String) -> Unit,
+    onGoogleSignIn: () -> Unit,
     onSwitchToSignUp: () -> Unit
 ) {
-    var email by remember { mutableStateOf("efe.chukwu@student.unilag.edu.ng") }
+    var email by remember { mutableStateOf("golowosile@gmail.com") }
     var password by remember { mutableStateOf("password123") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoadingGoogle by remember { mutableStateOf(false) }
@@ -337,7 +327,7 @@ fun SignInScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Sign in to access your student network, Aluta Market and campus feed.",
+                    text = "Sign in to access your student profile, live campus feed & Supabase sync.",
                     fontSize = 13.5.sp,
                     color = DarkTextSecondary,
                     lineHeight = 19.sp
@@ -351,9 +341,9 @@ fun SignInScreen(
                     onClick = {
                         isLoadingGoogle = true
                         coroutineScope.launch {
-                            delay(600)
+                            delay(400)
                             isLoadingGoogle = false
-                            onSuccess()
+                            onGoogleSignIn()
                         }
                     },
                     modifier = Modifier.testTag("signin_google_btn")
@@ -444,7 +434,7 @@ fun SignInScreen(
 
                 // Submit Button
                 Button(
-                    onClick = onSuccess,
+                    onClick = { onSuccess(email) },
                     colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
                     shape = RoundedCornerShape(100.dp),
                     modifier = Modifier
@@ -491,12 +481,13 @@ fun SignInScreen(
 @Composable
 fun SignUpScreen(
     onBack: () -> Unit,
-    onSuccess: () -> Unit,
+    onSuccess: (fullName: String, username: String, email: String, faculty: String) -> Unit,
+    onGoogleSignUp: () -> Unit,
     onSwitchToSignIn: () -> Unit
 ) {
-    var fullName by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf("Gbolahan Olowosile") }
+    var username by remember { mutableStateOf("golowosile") }
+    var email by remember { mutableStateOf("golowosile@gmail.com") }
     var faculty by remember { mutableStateOf("SIMME") }
     var isLoadingGoogle by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -541,7 +532,7 @@ fun SignUpScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Claim your verified student badge and connect across faculties.",
+                    text = "Claim your student badge, start trading on Aluta Market, and connect.",
                     fontSize = 13.sp,
                     color = DarkTextSecondary
                 )
@@ -554,9 +545,9 @@ fun SignUpScreen(
                     onClick = {
                         isLoadingGoogle = true
                         coroutineScope.launch {
-                            delay(600)
+                            delay(400)
                             isLoadingGoogle = false
-                            onSuccess()
+                            onGoogleSignUp()
                         }
                     },
                     modifier = Modifier.testTag("signup_google_btn")
@@ -585,7 +576,7 @@ fun SignUpScreen(
                 OutlinedTextField(
                     value = fullName,
                     onValueChange = { fullName = it },
-                    label = { Text("Full Name (e.g. Efe Chukwu)") },
+                    label = { Text("Full Name (e.g. Gbolahan Olowosile)") },
                     leadingIcon = {
                         Icon(Icons.Default.Person, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
                     },
@@ -608,7 +599,7 @@ fun SignUpScreen(
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
-                    label = { Text("Username (e.g. efe.lens)") },
+                    label = { Text("Username (e.g. golowosile)") },
                     leadingIcon = {
                         Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
                     },
@@ -631,7 +622,7 @@ fun SignUpScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Student Email") },
+                    label = { Text("Student Email / Gmail") },
                     leadingIcon = {
                         Icon(Icons.Default.School, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
                     },
@@ -691,7 +682,7 @@ fun SignUpScreen(
                 Spacer(modifier = Modifier.height(28.dp))
 
                 Button(
-                    onClick = onSuccess,
+                    onClick = { onSuccess(fullName, username, email, faculty) },
                     colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
                     shape = RoundedCornerShape(100.dp),
                     modifier = Modifier
@@ -776,19 +767,15 @@ fun GoogleSignInButton(
 fun GoogleLogoVector(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val w = size.width
-        val h = size.height
         val cx = w / 2f
-        val cy = h / 2f
+        val cy = size.height / 2f
         val radius = w * 0.46f
 
-        // Blue bar & wedge
         val blueColor = Color(0xFF4285F4)
         val greenColor = Color(0xFF34A853)
         val yellowColor = Color(0xFFFBBC05)
         val redColor = Color(0xFFEA4335)
 
-        // Draw standard geometric arcs for G
-        // Red Top Arc
         drawArc(
             color = redColor,
             startAngle = 180f + 40f,
@@ -797,7 +784,6 @@ fun GoogleLogoVector(modifier: Modifier = Modifier) {
             topLeft = Offset(cx - radius, cy - radius),
             size = Size(radius * 2, radius * 2)
         )
-        // Yellow Left-Top Arc
         drawArc(
             color = yellowColor,
             startAngle = 135f,
@@ -806,7 +792,6 @@ fun GoogleLogoVector(modifier: Modifier = Modifier) {
             topLeft = Offset(cx - radius, cy - radius),
             size = Size(radius * 2, radius * 2)
         )
-        // Green Bottom Arc
         drawArc(
             color = greenColor,
             startAngle = 45f,
@@ -815,7 +800,6 @@ fun GoogleLogoVector(modifier: Modifier = Modifier) {
             topLeft = Offset(cx - radius, cy - radius),
             size = Size(radius * 2, radius * 2)
         )
-        // Blue Right Arc & Horizontal bar
         drawArc(
             color = blueColor,
             startAngle = -35f,
@@ -825,14 +809,12 @@ fun GoogleLogoVector(modifier: Modifier = Modifier) {
             size = Size(radius * 2, radius * 2)
         )
 
-        // Center cutout
         drawCircle(
             color = Color.White,
             radius = radius * 0.58f,
             center = Offset(cx, cy)
         )
 
-        // Blue Horizontal Tab
         drawRect(
             color = blueColor,
             topLeft = Offset(cx - radius * 0.1f, cy - radius * 0.22f),

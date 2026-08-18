@@ -73,21 +73,15 @@ class MainActivity : ComponentActivity() {
                                     OnboardingScreen(
                                         onSignInClick = { viewModel.setDestination(AppDestination.SIGN_IN) },
                                         onSignUpClick = { viewModel.setDestination(AppDestination.SIGN_UP) },
-                                        onGoogleSignIn = {
-                                            viewModel.setDestination(AppDestination.MAIN)
-                                            viewModel.showToast("✨ Signed in with Google as @${uiState.myProfile.username}")
-                                        },
-                                        onExploreAsGuest = { viewModel.setDestination(AppDestination.MAIN) }
+                                        onGoogleSignIn = { viewModel.loginWithGoogle() }
                                     )
                                 }
 
                                 AppDestination.SIGN_IN -> {
                                     SignInScreen(
                                         onBack = { viewModel.setDestination(AppDestination.ONBOARDING) },
-                                        onSuccess = {
-                                            viewModel.setDestination(AppDestination.MAIN)
-                                            viewModel.showToast("✨ Signed in as @${uiState.myProfile.username}")
-                                        },
+                                        onSuccess = { email -> viewModel.loginWithEmail(email) },
+                                        onGoogleSignIn = { viewModel.loginWithGoogle() },
                                         onSwitchToSignUp = { viewModel.setDestination(AppDestination.SIGN_UP) }
                                     )
                                 }
@@ -95,10 +89,10 @@ class MainActivity : ComponentActivity() {
                                 AppDestination.SIGN_UP -> {
                                     SignUpScreen(
                                         onBack = { viewModel.setDestination(AppDestination.ONBOARDING) },
-                                        onSuccess = {
-                                            viewModel.setDestination(AppDestination.MAIN)
-                                            viewModel.showToast("🎓 Welcome to Blink Campus!")
+                                        onSuccess = { name, user, email, fac ->
+                                            viewModel.signUp(name, user, email, fac)
                                         },
+                                        onGoogleSignUp = { viewModel.loginWithGoogle() },
                                         onSwitchToSignIn = { viewModel.setDestination(AppDestination.SIGN_IN) }
                                     )
                                 }
