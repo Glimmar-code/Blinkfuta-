@@ -8,17 +8,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.*
 import com.example.ui.screens.*
 import com.example.ui.theme.BlinkTheme
-import com.example.ui.theme.blinkBackgroundBrush
 import com.example.viewmodel.AppDestination
 import com.example.viewmodel.BlinkViewModel
 import com.example.viewmodel.MainTab
@@ -33,26 +32,30 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            val uiState by viewModel.uiState.collectAsState()
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val snackbarHostState = remember { SnackbarHostState() }
 
+            // Listen for snackbar events
             LaunchedEffect(Unit) {
-                viewModel.snackBarMessages.collectLatest { message ->
-                    snackbarHostState.showSnackbar(message)
+                viewModel.snackBarMessages.collectLatest { msg ->
+                    snackbarHostState.showSnackbar(msg)
                 }
             }
 
             BlinkTheme(darkTheme = uiState.isDarkMode) {
                 Scaffold(
-                    snackbarHost = { SnackbarHost(snackbarHostState) },
-                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    snackbarHost = {
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.testTag("app_snackbar")
+                        )
+                    },
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
-                            .background(blinkBackgroundBrush(uiState.isDarkMode))
                     ) {
                         AnimatedContent(
                             targetState = uiState.destination,
@@ -60,12 +63,14 @@ class MainActivity : ComponentActivity() {
                                 fadeIn(animationSpec = tween(300)) togetherWith
                                         fadeOut(animationSpec = tween(300))
                             },
-                            label = "AppDestinationTransition"
+                            label = "AppNavigation"
                         ) { destination ->
                             when (destination) {
                                 AppDestination.SPLASH -> {
                                     SplashScreen(
-                                        onTimeout = { viewModel.setDestination(AppDestination.ONBOARDING) }
+                                        onTimeout = {
+                                            viewModel.setDestination(AppDestination.ONBOARDING)
+                                        }
                                     )
                                 }
 
@@ -80,8 +85,13 @@ class MainActivity : ComponentActivity() {
                                 AppDestination.SIGN_IN -> {
                                     SignInScreen(
                                         onBack = { viewModel.setDestination(AppDestination.ONBOARDING) },
-                                        onSuccess = { email -> viewModel.loginWithEmail(email) },
+                                        onSignInWithCredentials = { emailOrUser, password, onResult ->
+                                            viewModel.signInWithCredentials(emailOrUser, password, onResult)
+                                        },
                                         onGoogleSignIn = { viewModel.loginWithGoogle() },
+                                        onForgotPassword = { email, onResult ->
+                                            viewModel.sendPasswordReset(email, onResult)
+                                        },
                                         onSwitchToSignUp = { viewModel.setDestination(AppDestination.SIGN_UP) }
                                     )
                                 }
@@ -94,6 +104,16 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onGoogleSignUp = { viewModel.loginWithGoogle() },
                                         onSwitchToSignIn = { viewModel.setDestination(AppDestination.SIGN_IN) }
+                                    )
+                                }
+
+                                AppDestination.PROFILE_SETUP -> {
+                                    ProfileSetupOnboardingScreen(
+                                        studentName = uiState.myProfile.fullName,
+                                        studentUsername = uiState.myProfile.username,
+                                        onComplete = { uni, dept, level, bio, skills ->
+                                            viewModel.completeProfileOnboarding(uni, level, bio, skills)
+                                        }
                                     )
                                 }
 
@@ -125,9 +145,11 @@ fun MainAppContent(
                 uiState.isBecomeSellerOpen ||
                 uiState.isEditProfileOpen ||
                 uiState.isMenuOpen ||
-                uiState.activeConversationPartner != null
+                uiState.activeConversationPartner != null ||
+                uiState.activePostOptionsPost != null
     ) {
         when {
+            uiState.activePostOptionsPost != null -> viewModel.openPostOptions(null)
             uiState.isMenuOpen -> viewModel.openMenu(false)
             uiState.isEditProfileOpen -> viewModel.openEditProfile(false)
             uiState.isBecomeSellerOpen -> viewModel.openBecomeSeller(false)
@@ -154,7 +176,8 @@ fun MainAppContent(
                         onLikePost = { viewModel.togglePostLike(it) },
                         onCommentPost = { viewModel.openCommentsForPost(it) },
                         onBookmarkPost = { viewModel.toggleBookmark(it) },
-                        onSharePost = { viewModel.showToast("Link copied to clipboard!") },
+                        onSharePost = { viewModel.sharePost(it) },
+                        onOptionsClick = { viewModel.openPostOptions(it) },
                         onProfileClick = { viewModel.openProfile(it) },
                         onAddStoryClick = { viewModel.openCreatePost(true) },
                         onStoryClick = { story -> viewModel.showToast("Viewing story by @${story.username}") },
@@ -246,17 +269,28 @@ fun MainAppContent(
             }
         }
 
-        // Sub-screen Overlays: User Profile
+        // Sub-screen Overlays: User Profile with dynamic tabs (Posts, Liked, Saved, Skills, About) & messaging
         AnimatedVisibility(
             visible = uiState.viewingProfile != null,
             enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
         ) {
             uiState.viewingProfile?.let { profile ->
+                val isMyProfile = profile.username == uiState.myProfile.username || profile.username == "you"
+                val profilePosts = if (isMyProfile) {
+                    uiState.posts.filter { it.author == uiState.myProfile.username || it.author == "efe.design" }
+                } else {
+                    uiState.posts.filter { it.author == profile.username }
+                }
+                val profileLikedPosts = uiState.posts.filter { it.isLiked }
+                val profileSavedPosts = uiState.posts.filter { it.isBookmarked }
+
                 ProfileScreen(
                     profile = profile,
-                    isMe = profile.username == uiState.myProfile.username,
-                    userPosts = uiState.posts,
+                    isMe = isMyProfile,
+                    userPosts = profilePosts,
+                    likedPosts = profileLikedPosts,
+                    savedPosts = profileSavedPosts,
                     onBack = { viewModel.closeProfile() },
                     onEditProfileClick = { viewModel.openEditProfile(true) },
                     onDirectMessage = { partner -> viewModel.openChatWithUser(partner) },
@@ -264,7 +298,9 @@ fun MainAppContent(
                     onLikePost = { viewModel.togglePostLike(it) },
                     onCommentPost = { viewModel.openCommentsForPost(it) },
                     onBookmarkPost = { viewModel.toggleBookmark(it) },
-                    onSharePost = { viewModel.showToast("Post link copied!") },
+                    onSharePost = { viewModel.sharePost(it) },
+                    onOptionsClick = { viewModel.openPostOptions(it) },
+                    onProfileClick = { viewModel.openProfile(it) },
                     isDark = uiState.isDarkMode
                 )
             }
@@ -316,16 +352,19 @@ fun MainAppContent(
             )
         }
 
-        // Modals: Comments Modal Sheet
+        // Modals: Comments Modal Sheet with reply & like interactions
         if (uiState.activeCommentsPostId != null) {
             CommentSheet(
                 comments = uiState.comments,
                 isDark = uiState.isDarkMode,
                 onDismiss = { viewModel.openCommentsForPost(null) },
-                onSendComment = { text ->
+                onSendComment = { text, replyToUser ->
                     uiState.activeCommentsPostId?.let { postId ->
-                        viewModel.addComment(postId, text)
+                        viewModel.addComment(postId, text, replyToUser)
                     }
+                },
+                onToggleCommentLike = { commentId ->
+                    viewModel.toggleCommentLike(commentId)
                 },
                 onProfileClick = { username ->
                     viewModel.openCommentsForPost(null)
@@ -334,7 +373,23 @@ fun MainAppContent(
             )
         }
 
-        // Modals: Activity Sheet
+        // Modals: Post Options Menu Sheet (Save, Share, Delete, Report, Mute)
+        if (uiState.activePostOptionsPost != null) {
+            val post = uiState.activePostOptionsPost!!
+            PostOptionsMenuSheet(
+                post = post,
+                isAuthor = post.author == uiState.myProfile.username || post.author == "efe.design" || post.author == "you",
+                isDark = uiState.isDarkMode,
+                onDismiss = { viewModel.openPostOptions(null) },
+                onToggleSave = { viewModel.toggleBookmark(post.id) },
+                onShare = { viewModel.sharePost(post.id) },
+                onDelete = { viewModel.deletePost(post.id) },
+                onReport = { reason -> viewModel.reportPost(post.id, reason) },
+                onMuteUser = { username -> viewModel.muteUser(username) }
+            )
+        }
+
+        // Modals: Activity Sheet (Segmented Columns & direct routes to post/market/user)
         if (uiState.isActivityOpen) {
             ActivitySheet(
                 activities = uiState.activities,
@@ -342,6 +397,9 @@ fun MainAppContent(
                 onProfileClick = { username ->
                     viewModel.openActivity(false)
                     viewModel.openProfile(username)
+                },
+                onNotificationClick = { activity ->
+                    viewModel.handleNotificationClick(activity)
                 },
                 isDark = uiState.isDarkMode
             )

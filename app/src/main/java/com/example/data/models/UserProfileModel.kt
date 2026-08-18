@@ -60,6 +60,7 @@ data class UserProfile(
     var currentCityState: String = "Lagos, Nigeria",
     var email: ContactField = ContactField("efe.chukwu@student.unilag.edu.ng", true),
     var phone: ContactField = ContactField("+234 809 123 4567", true),
+    var whatsapp: ContactField = ContactField("+234 809 123 4567", true),
     var links: SocialLinks = SocialLinks(
         website = "https://efechukwu.design",
         linkedin = "linkedin.com/in/efechukwu",

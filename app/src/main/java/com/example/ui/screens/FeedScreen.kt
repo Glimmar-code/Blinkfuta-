@@ -1,9 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -30,9 +28,7 @@ import com.example.data.models.Story
 import com.example.ui.components.BlinkMark
 import com.example.ui.components.PostCard
 import com.example.ui.components.StoryBar
-import com.example.ui.theme.BlinkLavender
 import com.example.ui.theme.BlinkPink
-import com.example.ui.theme.BlinkPurple
 
 @Composable
 fun FeedScreen(
@@ -47,6 +43,7 @@ fun FeedScreen(
     onCommentPost: (String) -> Unit,
     onBookmarkPost: (String) -> Unit,
     onSharePost: (String) -> Unit,
+    onOptionsClick: (FeedPost) -> Unit,
     onProfileClick: (String) -> Unit,
     onAddStoryClick: () -> Unit,
     onStoryClick: (Story) -> Unit,
@@ -206,6 +203,7 @@ fun FeedScreen(
                         onComment = { onCommentPost(post.id) },
                         onBookmark = { onBookmarkPost(post.id) },
                         onShare = { onSharePost(post.id) },
+                        onOptionsClick = { onOptionsClick(post) },
                         onProfileClick = onProfileClick
                     )
                 }

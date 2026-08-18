@@ -1,5 +1,12 @@
 package com.example.data.models
 
+enum class NotificationFilter(val label: String, val icon: String) {
+    ALL("All", "🔔"),
+    COMMENTS("Mentions & Comments", "💬"),
+    LIKES("Likes & Saves", "❤️"),
+    MARKET("Campus & Market", "🛍️")
+}
+
 data class FeedPost(
     val id: String,
     val author: String,
@@ -13,6 +20,7 @@ data class FeedPost(
     var isLiked: Boolean = false,
     var commentsCount: Int,
     var sharesCount: Int,
+    var viewsCount: Int = 1450,
     var isBookmarked: Boolean = false,
     val isReel: Boolean = false,
     val videoDuration: String = "0:30"
@@ -33,7 +41,11 @@ data class ActivityItem(
     val avatar: String,
     val action: String,
     val time: String,
-    val isUnread: Boolean = false
+    val isUnread: Boolean = false,
+    val category: NotificationFilter = NotificationFilter.ALL,
+    val targetPostId: String? = null,
+    val targetMarketId: String? = null,
+    val previewText: String? = null
 )
 
 data class MarketItem(

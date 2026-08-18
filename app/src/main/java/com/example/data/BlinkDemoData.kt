@@ -30,6 +30,7 @@ object BlinkDemoData {
             isLiked = true,
             commentsCount = 89,
             sharesCount = 42,
+            viewsCount = 3820,
             isBookmarked = false
         ),
         FeedPost(
@@ -47,6 +48,7 @@ object BlinkDemoData {
             isLiked = false,
             commentsCount = 64,
             sharesCount = 19,
+            viewsCount = 2410,
             isBookmarked = true
         ),
         FeedPost(
@@ -64,6 +66,7 @@ object BlinkDemoData {
             isLiked = true,
             commentsCount = 132,
             sharesCount = 88,
+            viewsCount = 5900,
             isBookmarked = false
         ),
         FeedPost(
@@ -79,6 +82,7 @@ object BlinkDemoData {
             isLiked = false,
             commentsCount = 28,
             sharesCount = 12,
+            viewsCount = 1180,
             isBookmarked = false
         )
     )
@@ -97,6 +101,7 @@ object BlinkDemoData {
             isLiked = true,
             commentsCount = 561,
             sharesCount = 24000,
+            viewsCount = 450000,
             isBookmarked = true,
             isReel = true,
             videoDuration = "0:45"
@@ -114,6 +119,7 @@ object BlinkDemoData {
             isLiked = false,
             commentsCount = 412,
             sharesCount = 15300,
+            viewsCount = 195000,
             isBookmarked = false,
             isReel = true,
             videoDuration = "0:30"
@@ -131,6 +137,7 @@ object BlinkDemoData {
             isLiked = true,
             commentsCount = 189,
             sharesCount = 8900,
+            viewsCount = 82000,
             isBookmarked = true,
             isReel = true,
             videoDuration = "1:00"
@@ -295,11 +302,72 @@ object BlinkDemoData {
     )
 
     fun initialActivities(): List<ActivityItem> = listOf(
-        ActivityItem("a_1", "zara.editorial", "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=200&h=200&fit=crop", "liked your post in Engineering", "2m ago", true),
-        ActivityItem("a_2", "kemi_eng", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", "endorsed your Figma skill", "15m ago", true),
-        ActivityItem("a_3", "chidi_law", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop", "started following you", "1h ago", false),
-        ActivityItem("a_4", "aluta_market_hq", "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop", "featured your MacBook listing on Aluta Market", "3h ago", false),
-        ActivityItem("a_5", "luna.style", "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&h=200&fit=crop", "commented: 'Need this shoot BTS!'", "5h ago", false)
+        ActivityItem(
+            id = "a_1",
+            user = "zara.editorial",
+            avatar = "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=200&h=200&fit=crop",
+            action = "liked your post in Engineering",
+            time = "2m ago",
+            isUnread = true,
+            category = NotificationFilter.LIKES,
+            targetPostId = "p_2",
+            previewText = "Built a solar inverter prototype in the systems lab today with @efe.design! ⚡"
+        ),
+        ActivityItem(
+            id = "a_2",
+            user = "luna.style",
+            avatar = "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&h=200&fit=crop",
+            action = "commented: 'Need this shoot BTS!' on your post",
+            time = "15m ago",
+            isUnread = true,
+            category = NotificationFilter.COMMENTS,
+            targetPostId = "p_1",
+            previewText = "Campus Fashion Gala 2026 was pure art. Congratulations to all student designers!"
+        ),
+        ActivityItem(
+            id = "a_3",
+            user = "kemi_eng",
+            avatar = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop",
+            action = "mentioned you in a comment: '@efe.design check this out!'",
+            time = "45m ago",
+            isUnread = true,
+            category = NotificationFilter.COMMENTS,
+            targetPostId = "p_2",
+            previewText = "Built a solar inverter prototype in the systems lab today!"
+        ),
+        ActivityItem(
+            id = "a_4",
+            user = "aluta_market_hq",
+            avatar = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop",
+            action = "featured your MacBook Pro listing on Aluta Market",
+            time = "3h ago",
+            isUnread = false,
+            category = NotificationFilter.MARKET,
+            targetMarketId = "m_1",
+            previewText = "MacBook Pro M1 (16GB / 512GB SSD) - Space Gray"
+        ),
+        ActivityItem(
+            id = "a_5",
+            user = "chidi_law",
+            avatar = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
+            action = "saved your post to their bookmarks",
+            time = "5h ago",
+            isUnread = false,
+            category = NotificationFilter.LIKES,
+            targetPostId = "p_1",
+            previewText = "Campus Fashion Gala 2026 was pure art."
+        ),
+        ActivityItem(
+            id = "a_6",
+            user = "campus_tech_deals",
+            avatar = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop",
+            action = "replied to your market inquiry on WhatsApp & Blink",
+            time = "8h ago",
+            isUnread = false,
+            category = NotificationFilter.MARKET,
+            targetMarketId = "m_3",
+            previewText = "Anker 20,000mAh 22.5W Fast Charge Power Bank"
+        )
     )
 
     fun initialComments(): List<Comment> = listOf(
@@ -308,11 +376,11 @@ object BlinkDemoData {
             user = "marco_v",
             avatar = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
             text = "This is fire 🔥🔥 @sophia_kim you have to see this design!",
-            time = "10m",
+            time = "10m ago",
             likes = 84,
             isLiked = false,
             replies = listOf(
-                CommentReply(11L, "sophia_kim", "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop", "I'm totally obsessed 😍 clean execution!", "5m", 12, true)
+                CommentReply(11L, "sophia_kim", "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop", "I'm totally obsessed 😍 clean execution!", "5m ago", 12, true)
             )
         ),
         Comment(
@@ -320,7 +388,7 @@ object BlinkDemoData {
             user = "luna.style",
             avatar = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop",
             text = "The typography and lighting on this is unreal ✨ #editorial",
-            time = "32m",
+            time = "32m ago",
             likes = 46,
             isLiked = true
         ),
@@ -329,7 +397,7 @@ object BlinkDemoData {
             user = "kai.lens",
             avatar = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop",
             text = "Need the camera and lighting setup breakdown please 🙏",
-            time = "1h",
+            time = "1h ago",
             likes = 12,
             isLiked = false
         )

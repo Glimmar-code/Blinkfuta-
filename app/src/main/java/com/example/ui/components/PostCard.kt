@@ -40,11 +40,11 @@ fun PostCard(
     onComment: () -> Unit,
     onBookmark: () -> Unit,
     onShare: () -> Unit,
+    onOptionsClick: () -> Unit,
     onProfileClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val cardBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
-    val borderColor = if (isDark) MaterialTheme.colorScheme.outline else Color(0xFFE5E9EE)
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -101,24 +101,57 @@ fun PostCard(
                             FacultyBadge(tag = post.facultyTag)
                         }
 
-                        Text(
-                            text = post.timeAgo,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.sp,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = post.timeAgo,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+
+                            Text(
+                                text = "•",
+                                fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        )
+
+                            // Views indicator
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Visibility,
+                                    contentDescription = "Views",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "${formatNumber(post.viewsCount)} views",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
 
+                // 3-Dots Options Menu
                 IconButton(
-                    onClick = onShare,
-                    modifier = Modifier.size(32.dp)
+                    onClick = onOptionsClick,
+                    modifier = Modifier.size(34.dp).testTag("post_options_${post.id}")
                 ) {
                     Icon(
                         imageVector = Icons.Default.MoreHoriz,
-                        contentDescription = "Options",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        contentDescription = "Post Options",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -167,7 +200,7 @@ fun PostCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Action Row: Like, Comment, Bookmark, Share
+            // Action Row: Like, Comment, Share, Bookmark
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -179,7 +212,7 @@ fun PostCard(
                 ) {
                     // Like button
                     val likeScale by animateFloatAsState(
-                        targetValue = if (post.isLiked) 1.2f else 1f,
+                        targetValue = if (post.isLiked) 1.25f else 1f,
                         animationSpec = spring(dampingRatio = 0.4f),
                         label = "likeScale"
                     )
@@ -242,6 +275,7 @@ fun PostCard(
                         modifier = Modifier
                             .clickable { onShare() }
                             .padding(vertical = 4.dp)
+                            .testTag("share_button_${post.id}")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Send,
@@ -258,16 +292,24 @@ fun PostCard(
                     }
                 }
 
-                // Bookmark icon
+                // Bookmark / Save icon
+                val bookmarkScale by animateFloatAsState(
+                    targetValue = if (post.isBookmarked) 1.2f else 1f,
+                    animationSpec = spring(dampingRatio = 0.45f),
+                    label = "bookmarkScale"
+                )
+
                 IconButton(
                     onClick = onBookmark,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp).testTag("bookmark_button_${post.id}")
                 ) {
                     Icon(
                         imageVector = if (post.isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                         contentDescription = "Bookmark",
                         tint = if (post.isBookmarked) BlinkPurple else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier
+                            .size(22.dp)
+                            .scale(bookmarkScale)
                     )
                 }
             }

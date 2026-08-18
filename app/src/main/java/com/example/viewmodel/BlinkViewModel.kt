@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 enum class AppDestination {
-    SPLASH, ONBOARDING, SIGN_IN, SIGN_UP, MAIN
+    SPLASH, ONBOARDING, SIGN_IN, SIGN_UP, PROFILE_SETUP, MAIN
 }
 
 enum class MainTab(val index: Int, val title: String) {
@@ -38,6 +38,7 @@ data class BlinkUiState(
     val isActivityOpen: Boolean = false,
     val isMenuOpen: Boolean = false,
     val activeCommentsPostId: String? = null,
+    val activePostOptionsPost: FeedPost? = null,
     val isCreatePostOpen: Boolean = false,
     val activeConversationPartner: String? = null,
     val isConversationFullScreen: Boolean = false,
@@ -49,6 +50,7 @@ data class BlinkUiState(
     val conversations: List<ChatConversation> = BlinkDemoData.initialConversations(),
     val activities: List<ActivityItem> = BlinkDemoData.initialActivities(),
     val comments: List<Comment> = BlinkDemoData.initialComments(),
+    val mutedUsers: Set<String> = emptySet(),
     val feedSubTab: Int = 0, // 0: Posts, 1: Reels
     val isLiveSupabaseConnected: Boolean = true
 )
@@ -70,31 +72,13 @@ class BlinkViewModel : ViewModel() {
     fun fetchSupabaseData() {
         viewModelScope.launch {
             try {
-                // Fetch Feed Posts from Supabase
+                // Fetch Posts from Supabase
                 val livePosts = supabaseService.fetchFeedPosts()
                 if (livePosts.isNotEmpty()) {
-                    val postsList = livePosts.filter { !it.isReel }
-                    val reelsList = livePosts.filter { it.isReel }
-                    _uiState.value = _uiState.value.copy(
-                        posts = if (postsList.isNotEmpty()) postsList else _uiState.value.posts,
-                        reels = if (reelsList.isNotEmpty()) reelsList else _uiState.value.reels
-                    )
+                    _uiState.value = _uiState.value.copy(posts = livePosts)
                 }
 
-                // Fetch Profiles from Supabase
-                val liveProfiles = supabaseService.fetchProfiles()
-                if (liveProfiles.isNotEmpty()) {
-                    val mySupabaseProfile = liveProfiles.find { it.username == "efe.design" || it.id == "user_me" } ?: liveProfiles.first()
-                    _uiState.value = _uiState.value.copy(myProfile = mySupabaseProfile)
-                }
-
-                // Fetch Leaderboard from Supabase
-                val liveLeaderboard = supabaseService.fetchLeaderboard()
-                if (liveLeaderboard.isNotEmpty()) {
-                    _uiState.value = _uiState.value.copy(leaderboardUsers = liveLeaderboard)
-                }
-
-                // Fetch Market Items from Supabase
+                // Fetch Market Listings from Supabase
                 val liveMarket = supabaseService.fetchMarketItems()
                 if (liveMarket.isNotEmpty()) {
                     _uiState.value = _uiState.value.copy(marketItems = liveMarket)
@@ -106,7 +90,56 @@ class BlinkViewModel : ViewModel() {
                     _uiState.value = _uiState.value.copy(conversations = liveConversations)
                 }
             } catch (e: Exception) {
-                // Silent fallback to local rich data
+                // Silent fallback to rich local state
+            }
+        }
+    }
+
+    fun signInWithCredentials(
+        emailOrUsername: String,
+        password: String,
+        onResult: (success: Boolean, errorMessage: String?) -> Unit
+    ) {
+        if (emailOrUsername.isBlank() || password.isBlank()) {
+            onResult(false, "Please enter both email/username and password.")
+            return
+        }
+        viewModelScope.launch {
+            val result = supabaseService.authenticateUser(emailOrUsername, password)
+            result.onSuccess { profile ->
+                _uiState.value = _uiState.value.copy(
+                    myProfile = profile,
+                    destination = AppDestination.MAIN
+                )
+                fetchSupabaseData()
+                showToast("✨ Signed in as @${profile.username}")
+                onResult(true, null)
+            }.onFailure { error ->
+                val msg = error.message ?: "User unavailable or incorrect password."
+                showToast(msg)
+                onResult(false, msg)
+            }
+        }
+    }
+
+    fun sendPasswordReset(
+        email: String,
+        onResult: (success: Boolean, message: String) -> Unit
+    ) {
+        if (email.isBlank() || !email.contains("@")) {
+            onResult(false, "Please enter a valid university or Gmail address.")
+            return
+        }
+        viewModelScope.launch {
+            val success = supabaseService.recoverPassword(email)
+            if (success) {
+                val msg = "Password reset instructions sent to $email. Please check your inbox or spam."
+                showToast(msg)
+                onResult(true, msg)
+            } else {
+                val msg = "Could not send reset email. Please verify your address."
+                showToast(msg)
+                onResult(false, msg)
             }
         }
     }
@@ -127,57 +160,70 @@ class BlinkViewModel : ViewModel() {
         showToast("✨ Signed in with Google as @${updatedProfile.username}")
     }
 
-    fun loginWithEmail(email: String) {
-        val cleanEmail = if (email.isBlank()) "golowosile@gmail.com" else email.trim()
-        val derivedUsername = cleanEmail.substringBefore("@").replace(".", "_").lowercase()
-        val derivedFullName = cleanEmail.substringBefore("@").replace(".", " ").capitalizeWords()
-        val updatedProfile = _uiState.value.myProfile.copy(
-            email = ContactField(cleanEmail, true),
-            fullName = if (derivedFullName.isNotBlank()) derivedFullName else "Student",
-            username = if (derivedUsername.isNotBlank()) derivedUsername else "student_user"
-        )
-        _uiState.value = _uiState.value.copy(
-            myProfile = updatedProfile,
-            destination = AppDestination.MAIN
-        )
-        fetchSupabaseData()
-        showToast("✨ Signed in as @${updatedProfile.username}")
-    }
-
     fun signUp(fullName: String, username: String, email: String, faculty: String) {
         val cleanName = if (fullName.isNotBlank()) fullName.trim() else "Campus Student"
-        val cleanUsername = if (username.isNotBlank()) username.trim().lowercase() else "student_user"
-        val cleanEmail = if (email.isNotBlank()) email.trim() else "student@university.edu.ng"
-        val updatedProfile = _uiState.value.myProfile.copy(
+        val cleanUsername = if (username.isNotBlank()) username.trim().lowercase().replace("@", "") else "student_${System.currentTimeMillis() % 10000}"
+        val cleanEmail = if (email.isNotBlank()) email.trim() else "$cleanUsername@unilag.edu.ng"
+
+        val newProfile = _uiState.value.myProfile.copy(
             fullName = cleanName,
             username = cleanUsername,
             email = ContactField(cleanEmail, true),
-            faculty = if (faculty.isNotBlank()) faculty else "SIMME"
+            faculty = faculty
         )
         _uiState.value = _uiState.value.copy(
-            myProfile = updatedProfile,
+            myProfile = newProfile,
+            destination = AppDestination.PROFILE_SETUP
+        )
+        showToast("Welcome to Blink! Complete your campus profile.")
+    }
+
+    fun completeProfileOnboarding(
+        university: String,
+        academicLevel: String,
+        bio: String,
+        skills: List<String>,
+        phone: String = "",
+        whatsapp: String = ""
+    ) {
+        val updatedSkills = skills.filter { it.isNotBlank() }.map {
+            SkillEndorsement(it, 1, true)
+        }
+        val current = _uiState.value.myProfile
+        val completedProfile = current.copy(
+            university = university,
+            academicLevel = academicLevel,
+            bio = bio,
+            skillEndorsements = if (updatedSkills.isNotEmpty()) updatedSkills.toMutableList() else current.skillEndorsements,
+            phone = ContactField(if (phone.isNotBlank()) phone else current.phone.value, true),
+            whatsapp = ContactField(if (whatsapp.isNotBlank()) whatsapp else current.whatsapp.value, true)
+        )
+        _uiState.value = _uiState.value.copy(
+            myProfile = completedProfile,
             destination = AppDestination.MAIN
         )
-        fetchSupabaseData()
-        showToast("🎓 Welcome to Blink, $cleanName!")
+        showToast("🎉 Profile setup complete! Welcome to Blink.")
     }
 
-    fun showToast(message: String) {
-        viewModelScope.launch {
-            _snackBarMessages.emit(message)
-        }
-    }
-
-    fun setDestination(dest: AppDestination) {
+    fun navigateTo(dest: AppDestination) {
         _uiState.value = _uiState.value.copy(destination = dest)
     }
 
-    fun setTab(tab: MainTab) {
+    fun setDestination(dest: AppDestination) {
+        navigateTo(dest)
+    }
+
+    fun selectTab(tab: MainTab) {
         _uiState.value = _uiState.value.copy(
             selectedTab = tab,
-            activeConversationPartner = if (tab != MainTab.MESSAGES) null else _uiState.value.activeConversationPartner,
+            viewingProfile = null,
+            viewingProduct = null,
             isConversationFullScreen = false
         )
+    }
+
+    fun setTab(tab: MainTab) {
+        selectTab(tab)
     }
 
     fun setFeedSubTab(tab: Int) {
@@ -205,7 +251,6 @@ class BlinkViewModel : ViewModel() {
         if (username == "you" || username == state.myProfile.username || username == "efe.design") {
             _uiState.value = state.copy(viewingProfile = state.myProfile)
         } else {
-            // Find in leaderboard or create guest profile
             val leader = state.leaderboardUsers.find { it.username == username }
             val guest = UserProfile(
                 id = "guest_$username",
@@ -258,6 +303,10 @@ class BlinkViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(activeCommentsPostId = postId)
     }
 
+    fun openPostOptions(post: FeedPost?) {
+        _uiState.value = _uiState.value.copy(activePostOptionsPost = post)
+    }
+
     fun openCreatePost(open: Boolean) {
         _uiState.value = _uiState.value.copy(isCreatePostOpen = open)
     }
@@ -278,7 +327,7 @@ class BlinkViewModel : ViewModel() {
                 isVerified = true,
                 faculty = "SIMME",
                 messages = mutableListOf(
-                    ChatMessage("m_${System.currentTimeMillis()}", username, "Hi! Thanks for reaching out. How can I help?", "Just now", false)
+                    ChatMessage("m_${System.currentTimeMillis()}", username, "Hi! Thanks for reaching out on Blink. How can I help?", "Just now", false)
                 )
             )
             _uiState.value = state.copy(
@@ -286,6 +335,7 @@ class BlinkViewModel : ViewModel() {
                 selectedTab = MainTab.MESSAGES,
                 activeConversationPartner = username,
                 isConversationFullScreen = true,
+                viewingProfile = null,
                 viewingProduct = null
             )
         } else {
@@ -293,6 +343,7 @@ class BlinkViewModel : ViewModel() {
                 selectedTab = MainTab.MESSAGES,
                 activeConversationPartner = username,
                 isConversationFullScreen = true,
+                viewingProfile = null,
                 viewingProduct = null
             )
         }
@@ -366,6 +417,45 @@ class BlinkViewModel : ViewModel() {
         showToast("Bookmark updated")
     }
 
+    fun sharePost(postId: String) {
+        val updatedPosts = _uiState.value.posts.map { post ->
+            if (post.id == postId) {
+                post.copy(sharesCount = post.sharesCount + 1)
+            } else post
+        }
+        _uiState.value = _uiState.value.copy(posts = updatedPosts)
+        showToast("🔗 Post link copied and shared to campus!")
+    }
+
+    fun deletePost(postId: String) {
+        val filteredPosts = _uiState.value.posts.filterNot { it.id == postId }
+        val filteredReels = _uiState.value.reels.filterNot { it.id == postId }
+        _uiState.value = _uiState.value.copy(
+            posts = filteredPosts,
+            reels = filteredReels,
+            activePostOptionsPost = null
+        )
+        showToast("🗑️ Post deleted successfully.")
+    }
+
+    fun reportPost(postId: String, reason: String) {
+        _uiState.value = _uiState.value.copy(activePostOptionsPost = null)
+        showToast("🚨 Report received: \"$reason\". Campus moderation will review within 2 hours.")
+    }
+
+    fun muteUser(username: String) {
+        val currentMuted = _uiState.value.mutedUsers + username
+        val filteredPosts = _uiState.value.posts.filterNot { it.author == username }
+        val filteredReels = _uiState.value.reels.filterNot { it.author == username }
+        _uiState.value = _uiState.value.copy(
+            mutedUsers = currentMuted,
+            posts = filteredPosts,
+            reels = filteredReels,
+            activePostOptionsPost = null
+        )
+        showToast("🔇 @$username has been muted. Their posts won't appear in your feed.")
+    }
+
     fun addPost(text: String, faculty: String, imageUri: String?) {
         val newPost = FeedPost(
             id = "p_${System.currentTimeMillis()}",
@@ -379,7 +469,8 @@ class BlinkViewModel : ViewModel() {
             likes = 1,
             isLiked = true,
             commentsCount = 0,
-            sharesCount = 0
+            sharesCount = 0,
+            viewsCount = 1
         )
         _uiState.value = _uiState.value.copy(
             posts = listOf(newPost) + _uiState.value.posts,
@@ -399,102 +490,162 @@ class BlinkViewModel : ViewModel() {
         }
     }
 
+    fun addComment(postId: String, text: String, replyToUser: String? = null) {
+        val newComment = Comment(
+            id = System.currentTimeMillis(),
+            user = _uiState.value.myProfile.username,
+            avatar = _uiState.value.myProfile.avatarUrl,
+            text = text,
+            time = "Just now",
+            likes = 0,
+            isLiked = false
+        )
+        val updatedComments = listOf(newComment) + _uiState.value.comments
+        val updatedPosts = _uiState.value.posts.map { post ->
+            if (post.id == postId) {
+                post.copy(commentsCount = post.commentsCount + 1)
+            } else post
+        }
+        _uiState.value = _uiState.value.copy(
+            comments = updatedComments,
+            posts = updatedPosts
+        )
+        showToast("💬 Comment posted!")
+    }
+
+    fun toggleCommentLike(commentId: Long) {
+        val updatedComments = _uiState.value.comments.map { comment ->
+            if (comment.id == commentId) {
+                val newLiked = !comment.isLiked
+                comment.copy(
+                    isLiked = newLiked,
+                    likes = if (newLiked) comment.likes + 1 else comment.likes - 1
+                )
+            } else comment
+        }
+        _uiState.value = _uiState.value.copy(comments = updatedComments)
+    }
+
+    fun handleNotificationClick(activity: ActivityItem) {
+        _uiState.value = _uiState.value.copy(isActivityOpen = false)
+        if (activity.targetPostId != null) {
+            val targetPost = _uiState.value.posts.find { it.id == activity.targetPostId }
+            if (targetPost != null) {
+                _uiState.value = _uiState.value.copy(
+                    selectedTab = MainTab.HOME,
+                    feedSubTab = 0
+                )
+                if (activity.category == NotificationFilter.COMMENTS) {
+                    openCommentsForPost(targetPost.id)
+                } else {
+                    showToast("Viewing post by @${targetPost.author}")
+                }
+            }
+        } else if (activity.targetMarketId != null) {
+            val targetMarket = _uiState.value.marketItems.find { it.id == activity.targetMarketId }
+            if (targetMarket != null) {
+                openProductDetail(targetMarket)
+            }
+        } else {
+            openProfile(activity.user)
+        }
+    }
+
+    fun addMarketListing(item: MarketItem) {
+        _uiState.value = _uiState.value.copy(
+            marketItems = listOf(item) + _uiState.value.marketItems,
+            isPostItemOpen = false
+        )
+        showToast("🛍️ Product listed successfully on Aluta Market!")
+
+        viewModelScope.launch {
+            supabaseService.createMarketItem(item)
+        }
+    }
+
     fun addMarketItem(
         title: String,
         price: Long,
         category: String,
         condition: String,
         description: String,
-        imageUrl: String
+        imageUrl: String?
     ) {
-        val profile = _uiState.value.myProfile
         val newItem = MarketItem(
             id = "m_${System.currentTimeMillis()}",
             title = title,
             price = price,
-            images = listOf(imageUrl.ifBlank { "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&fit=crop" }),
-            sellerUsername = profile.username,
-            sellerAvatar = profile.avatarUrl,
-            sellerName = profile.sellerStoreName.ifBlank { profile.fullName },
-            sellerPhone = profile.phone.value,
-            sellerWhatsapp = profile.phone.value.filter { it.isDigit() },
+            images = if (!imageUrl.isNullOrBlank()) listOf(imageUrl) else listOf("https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&fit=crop"),
+            sellerUsername = _uiState.value.myProfile.username,
+            sellerAvatar = _uiState.value.myProfile.avatarUrl,
+            sellerName = _uiState.value.myProfile.fullName,
+            sellerPhone = _uiState.value.myProfile.phone.value,
+            sellerWhatsapp = _uiState.value.myProfile.whatsapp.value,
             sellerIsVerified = true,
-            sellerRating = 5.0,
-            sellerReviewCount = 1,
-            university = profile.university,
-            location = profile.currentCityState,
+            university = _uiState.value.myProfile.university,
+            location = _uiState.value.myProfile.currentCityState,
             category = category,
             condition = condition,
             description = description,
             postedTime = "Just now"
         )
-        _uiState.value = _uiState.value.copy(
-            marketItems = listOf(newItem) + _uiState.value.marketItems,
-            isPostItemOpen = false
-        )
-        showToast("🎉 Item listed on ALUTA MARKET!")
-
-        // Sync with Supabase in background
-        viewModelScope.launch {
-            supabaseService.createMarketItem(newItem)
-        }
+        addMarketListing(newItem)
     }
 
-    fun activateSellerAccount(storeName: String, phone: String, whatsapp: String, state: String, city: String) {
-        val updatedProfile = _uiState.value.myProfile.copy(
+    fun activateSellerAccount(
+        storeName: String,
+        phone: String,
+        whatsapp: String,
+        state: String,
+        city: String
+    ) {
+        val current = _uiState.value.myProfile
+        val updated = current.copy(
             isSellerActive = true,
-            sellerStoreName = storeName,
-            verificationBadge = VerificationBadge.GOLD,
             phone = ContactField(phone, true),
+            whatsapp = ContactField(whatsapp, true),
             currentCityState = "$city, $state"
         )
         _uiState.value = _uiState.value.copy(
-            myProfile = updatedProfile,
+            myProfile = updated,
             isBecomeSellerOpen = false
         )
-        showToast("💳 Paystack Payment Verified! Seller badge activated.")
+        showToast("🏪 Aluta Market Seller Store Activated: $storeName")
     }
 
-    fun addComment(postId: String, text: String) {
-        if (text.isBlank()) return
-        val profile = _uiState.value.myProfile
-        val newComment = Comment(
-            id = System.currentTimeMillis(),
-            user = profile.username,
-            avatar = profile.avatarUrl,
-            text = text,
-            time = "Just now",
-            likes = 0,
-            isLiked = false
-        )
-        _uiState.value = _uiState.value.copy(
-            comments = listOf(newComment) + _uiState.value.comments
-        )
-        showToast("Comment posted!")
-    }
-
-    fun endorseSkill(skillName: String) {
-        val profile = _uiState.value.myProfile
-        val updatedEndorsements = profile.skillEndorsements.map { e ->
-            if (e.skill == skillName) {
-                e.copy(
-                    endorsements = if (e.endorsedByMe) e.endorsements - 1 else e.endorsements + 1,
-                    endorsedByMe = !e.endorsedByMe
-                )
-            } else e
-        }.toMutableList()
-        val updatedProfile = profile.copy(skillEndorsements = updatedEndorsements)
-        _uiState.value = _uiState.value.copy(myProfile = updatedProfile)
-        showToast("Endorsement updated for $skillName")
-    }
-
-    fun updateMyProfile(updated: UserProfile) {
+    fun updateProfile(updated: UserProfile) {
         _uiState.value = _uiState.value.copy(
             myProfile = updated,
             isEditProfileOpen = false
         )
-        showToast("Profile updated successfully!")
+        showToast("Profile updated successfully")
+    }
+
+    fun updateMyProfile(updated: UserProfile) {
+        updateProfile(updated)
+    }
+
+    fun endorseSkill(skill: String) {
+        val current = _uiState.value.myProfile
+        val updated = current.skillEndorsements.map {
+            if (it.skill.equals(skill, ignoreCase = true)) {
+                val nextEndorsed = !it.endorsedByMe
+                it.copy(
+                    endorsedByMe = nextEndorsed,
+                    endorsements = if (nextEndorsed) it.endorsements + 1 else it.endorsements - 1
+                )
+            } else it
+        }
+        _uiState.value = _uiState.value.copy(myProfile = current.copy(skillEndorsements = updated.toMutableList()))
+        showToast("Endorsement updated for $skill")
+    }
+
+    fun showToast(msg: String) {
+        viewModelScope.launch {
+            _snackBarMessages.emit(msg)
+        }
     }
 }
 
-private fun String.capitalizeWords(): String = split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+private fun String.capitalizeWords(): String =
+    split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }

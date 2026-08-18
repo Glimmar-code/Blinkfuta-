@@ -2,15 +2,19 @@ package com.example.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -31,6 +35,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.ui.components.BlinkMark
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
@@ -139,7 +144,7 @@ fun OnboardingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header (No Guest option - strictly authenticated entry)
+            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -197,7 +202,7 @@ fun OnboardingScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Connect with students across Nigerian universities. Share live Reels, flex achievements, trade on ALUTA Market, and lead campus rankings.",
+                    text = "Connect with students across Nigerian universities. Share live Reels, trade on ALUTA Market, and lead campus rankings.",
                     fontSize = 13.5.sp,
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp,
@@ -252,7 +257,7 @@ fun OnboardingScreen(
                 OutlinedButton(
                     onClick = onSignInClick,
                     shape = RoundedCornerShape(100.dp),
-                    border = androidx.compose.foundation.BorderStroke(
+                    border = BorderStroke(
                         1.dp,
                         Brush.horizontalGradient(listOf(BlinkPurple, BlinkLavender))
                     ),
@@ -277,13 +282,17 @@ fun OnboardingScreen(
 @Composable
 fun SignInScreen(
     onBack: () -> Unit,
-    onSuccess: (email: String) -> Unit,
+    onSignInWithCredentials: (emailOrUsername: String, password: String, onResult: (Boolean, String?) -> Unit) -> Unit,
     onGoogleSignIn: () -> Unit,
+    onForgotPassword: (email: String, onResult: (Boolean, String) -> Unit) -> Unit,
     onSwitchToSignUp: () -> Unit
 ) {
-    var email by remember { mutableStateOf("golowosile@gmail.com") }
+    var emailOrUsername by remember { mutableStateOf("golowosile@gmail.com") }
     var password by remember { mutableStateOf("password123") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var authError by remember { mutableStateOf<String?>(null) }
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
     var isLoadingGoogle by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -333,7 +342,7 @@ fun SignInScreen(
                     lineHeight = 19.sp
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Continue with Google / Gmail (Primary)
                 GoogleSignInButton(
@@ -341,7 +350,7 @@ fun SignInScreen(
                     onClick = {
                         isLoadingGoogle = true
                         coroutineScope.launch {
-                            delay(400)
+                            delay(300)
                             isLoadingGoogle = false
                             onGoogleSignIn()
                         }
@@ -349,7 +358,7 @@ fun SignInScreen(
                     modifier = Modifier.testTag("signin_google_btn")
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Divider OR
                 Row(
@@ -358,7 +367,7 @@ fun SignInScreen(
                 ) {
                     Box(modifier = Modifier.weight(1f).height(1.dp).background(DarkBorder))
                     Text(
-                        text = "OR EMAIL",
+                        text = "OR EMAIL & PASSWORD",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = DarkTextSecondary,
@@ -367,20 +376,61 @@ fun SignInScreen(
                     Box(modifier = Modifier.weight(1f).height(1.dp).background(DarkBorder))
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Email field
+                // Error Banner if account is not found on Supabase or password invalid
+                AnimatedVisibility(
+                    visible = authError != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Surface(
+                        color = Color(0x33FF4D4D),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFF4D4D)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ErrorOutline,
+                                contentDescription = "Error",
+                                tint = Color(0xFFFF6B6B),
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = authError ?: "",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // Email / Username field
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("University Email / Username") },
+                    value = emailOrUsername,
+                    onValueChange = {
+                        emailOrUsername = it
+                        authError = null
+                    },
+                    label = { Text("University Email or Username") },
                     leadingIcon = {
                         Icon(Icons.Default.Email, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
                     },
+                    isError = authError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = BlinkPink,
                         unfocusedBorderColor = DarkBorder,
+                        errorBorderColor = Color(0xFFFF4D4D),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
                         focusedLabelColor = BlinkPink,
@@ -398,7 +448,10 @@ fun SignInScreen(
                 // Password field
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        authError = null
+                    },
                     label = { Text("Password") },
                     leadingIcon = {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
@@ -413,11 +466,13 @@ fun SignInScreen(
                             )
                         }
                     },
+                    isError = authError != null,
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = BlinkPink,
                         unfocusedBorderColor = DarkBorder,
+                        errorBorderColor = Color(0xFFFF4D4D),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
                         focusedLabelColor = BlinkPink,
@@ -430,11 +485,39 @@ fun SignInScreen(
                         .testTag("signin_password_field")
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                // Forgot / Reset Password Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { showForgotPasswordDialog = true },
+                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 0.dp)
+                    ) {
+                        Text(
+                            text = "Forgot / Reset Password?",
+                            color = BlinkLavender,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Submit Button
                 Button(
-                    onClick = { onSuccess(email) },
+                    onClick = {
+                        isSubmitting = true
+                        authError = null
+                        onSignInWithCredentials(emailOrUsername, password) { success, errorMsg ->
+                            isSubmitting = false
+                            if (!success) {
+                                authError = errorMsg ?: "User unavailable or incorrect password."
+                            }
+                        }
+                    },
+                    enabled = !isSubmitting,
                     colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
                     shape = RoundedCornerShape(100.dp),
                     modifier = Modifier
@@ -443,12 +526,20 @@ fun SignInScreen(
                         .shadow(8.dp, RoundedCornerShape(100.dp), ambientColor = BlinkPink)
                         .testTag("signin_submit_btn")
                 ) {
-                    Text(
-                        "Sign In",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            "Sign In to Campus",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -474,6 +565,171 @@ fun SignInScreen(
                 }
             }
         }
+
+        // Forgot / Reset Password Dialog
+        if (showForgotPasswordDialog) {
+            ForgotPasswordDialog(
+                initialEmail = if (emailOrUsername.contains("@")) emailOrUsername else "",
+                onDismiss = { showForgotPasswordDialog = false },
+                onSendReset = onForgotPassword
+            )
+        }
+    }
+}
+
+/**
+ * Forgot / Reset Password Dialog Modal
+ */
+@Composable
+fun ForgotPasswordDialog(
+    initialEmail: String,
+    onDismiss: () -> Unit,
+    onSendReset: (email: String, onResult: (Boolean, String) -> Unit) -> Unit
+) {
+    var resetEmail by remember { mutableStateOf(initialEmail) }
+    var isSending by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var isSuccess by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = DarkSurface,
+            border = BorderStroke(1.dp, DarkBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x33FF0055)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LockReset,
+                        contentDescription = "Reset Password",
+                        tint = BlinkPink,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Reset Your Password",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Enter your registered university email or Gmail to receive a password reset link from Supabase.",
+                    fontSize = 12.5.sp,
+                    color = DarkTextSecondary,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                if (statusMessage != null) {
+                    Surface(
+                        color = if (isSuccess) Color(0x3300E676) else Color(0x33FF4D4D),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, if (isSuccess) Color(0xFF00E676) else Color(0xFFFF4D4D)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = statusMessage ?: "",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(12.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                if (!isSuccess) {
+                    OutlinedTextField(
+                        value = resetEmail,
+                        onValueChange = { resetEmail = it },
+                        label = { Text("University / Gmail Address") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Email, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(18.dp))
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BlinkPink,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedLabelColor = BlinkPink,
+                            unfocusedLabelColor = DarkTextSecondary,
+                            focusedContainerColor = DarkBackground,
+                            unfocusedContainerColor = DarkBackground
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = {
+                            isSending = true
+                            statusMessage = null
+                            onSendReset(resetEmail) { success, msg ->
+                                isSending = false
+                                isSuccess = success
+                                statusMessage = msg
+                            }
+                        },
+                        enabled = !isSending && resetEmail.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
+                        shape = RoundedCornerShape(100.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        if (isSending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Send Reset Link", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
+                        shape = RoundedCornerShape(100.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text("Back to Sign In", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = DarkTextSecondary, fontSize = 13.sp)
+                }
+            }
+        }
     }
 }
 
@@ -488,8 +744,10 @@ fun SignUpScreen(
     var fullName by remember { mutableStateOf("Gbolahan Olowosile") }
     var username by remember { mutableStateOf("golowosile") }
     var email by remember { mutableStateOf("golowosile@gmail.com") }
+    var password by remember { mutableStateOf("password123") }
     var faculty by remember { mutableStateOf("SIMME") }
     var isLoadingGoogle by remember { mutableStateOf(false) }
+    var validationError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     Box(
@@ -545,7 +803,7 @@ fun SignUpScreen(
                     onClick = {
                         isLoadingGoogle = true
                         coroutineScope.launch {
-                            delay(400)
+                            delay(300)
                             isLoadingGoogle = false
                             onGoogleSignUp()
                         }
@@ -553,7 +811,7 @@ fun SignUpScreen(
                     modifier = Modifier.testTag("signup_google_btn")
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Divider OR
                 Row(
@@ -573,9 +831,30 @@ fun SignUpScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
+                if (validationError != null) {
+                    Surface(
+                        color = Color(0x33FF4D4D),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFF4D4D)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 14.dp)
+                    ) {
+                        Text(
+                            text = validationError ?: "",
+                            color = Color.White,
+                            fontSize = 12.5.sp,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = fullName,
-                    onValueChange = { fullName = it },
+                    onValueChange = {
+                        fullName = it
+                        validationError = null
+                    },
                     label = { Text("Full Name (e.g. Gbolahan Olowosile)") },
                     leadingIcon = {
                         Icon(Icons.Default.Person, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
@@ -598,7 +877,10 @@ fun SignUpScreen(
 
                 OutlinedTextField(
                     value = username,
-                    onValueChange = { username = it },
+                    onValueChange = {
+                        username = it
+                        validationError = null
+                    },
                     label = { Text("Username (e.g. golowosile)") },
                     leadingIcon = {
                         Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
@@ -621,11 +903,41 @@ fun SignUpScreen(
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        validationError = null
+                    },
                     label = { Text("Student Email / Gmail") },
                     leadingIcon = {
                         Icon(Icons.Default.School, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
                     },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BlinkPink,
+                        unfocusedBorderColor = DarkBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = BlinkPink,
+                        unfocusedLabelColor = DarkTextSecondary,
+                        focusedContainerColor = DarkSurface,
+                        unfocusedContainerColor = DarkSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        validationError = null
+                    },
+                    label = { Text("Password (at least 6 characters)") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
+                    },
+                    visualTransformation = PasswordVisualTransformation(),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = BlinkPink,
@@ -659,7 +971,7 @@ fun SignUpScreen(
                         Surface(
                             shape = RoundedCornerShape(100.dp),
                             color = if (selected) BlinkPink else DarkSurface,
-                            border = androidx.compose.foundation.BorderStroke(
+                            border = BorderStroke(
                                 1.dp,
                                 if (selected) BlinkPink else DarkBorder
                             ),
@@ -682,7 +994,19 @@ fun SignUpScreen(
                 Spacer(modifier = Modifier.height(28.dp))
 
                 Button(
-                    onClick = { onSuccess(fullName, username, email, faculty) },
+                    onClick = {
+                        if (fullName.isBlank()) {
+                            validationError = "Please enter your full name."
+                        } else if (username.isBlank()) {
+                            validationError = "Please choose a campus username."
+                        } else if (email.isBlank() || !email.contains("@")) {
+                            validationError = "Please enter a valid email address."
+                        } else if (password.length < 6) {
+                            validationError = "Password must be at least 6 characters."
+                        } else {
+                            onSuccess(fullName, username, email, faculty)
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
                     shape = RoundedCornerShape(100.dp),
                     modifier = Modifier
@@ -691,12 +1015,24 @@ fun SignUpScreen(
                         .shadow(8.dp, RoundedCornerShape(100.dp), ambientColor = BlinkPink)
                         .testTag("signup_submit_btn")
                 ) {
-                    Text(
-                        "Create Account & Enter",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "Next: Student Onboarding",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -719,6 +1055,288 @@ fun SignUpScreen(
                             fontSize = 13.5.sp
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Post-Signup Onboarding & Profile Setup Screen
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileSetupOnboardingScreen(
+    studentName: String,
+    studentUsername: String,
+    onComplete: (university: String, department: String, level: String, bio: String, skills: List<String>) -> Unit
+) {
+    val universities = listOf(
+        "University of Lagos (UNILAG)",
+        "University of Benin (UNIBEN)",
+        "Obafemi Awolowo University (OAU)",
+        "University of Nigeria Nsukka (UNN)",
+        "Ahmadu Bello University (ABU)",
+        "Federal University of Technology Akure (FUTA)",
+        "University of Ibadan (UI)",
+        "Lagos State University (LASU)",
+        "Covenant University"
+    )
+    val levels = listOf("100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "Postgraduate")
+    val interestOptions = listOf(
+        "Product Design", "Coding & Software", "Aluta Market Commerce",
+        "Photography", "Tech Meetups", "Gaming", "Content Creation",
+        "Campus Politics", "Afrobeats", "Cryptocurrency", "Fashion & Thrift"
+    )
+
+    var selectedUniversity by remember { mutableStateOf(universities[0]) }
+    var department by remember { mutableStateOf("Systems Engineering") }
+    var selectedLevel by remember { mutableStateOf(levels[3]) }
+    var bio by remember { mutableStateOf("Student creator on Blink 🚀 Building for campus life & trading on Aluta Market.") }
+    val selectedInterests = remember { mutableStateListOf("Product Design", "Coding & Software", "Aluta Market Commerce") }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkBackground)
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 24.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BlinkMark(size = 32.dp, showText = true)
+                    Surface(
+                        shape = RoundedCornerShape(100.dp),
+                        color = Color(0x33FF0055)
+                    ) {
+                        Text(
+                            text = "Step 2 of 2: Onboarding",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BlinkPink,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Welcome, $studentName! 🎓",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Set up your student profile so classmates and buyers can find you on Blink.",
+                    fontSize = 13.5.sp,
+                    color = DarkTextSecondary,
+                    lineHeight = 19.sp
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // University selection
+                Text(
+                    text = "Select Your University",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(universities) { uni ->
+                        val isSelected = selectedUniversity == uni
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = if (isSelected) BlinkPink else DarkSurface,
+                            border = BorderStroke(1.dp, if (isSelected) BlinkPink else DarkBorder),
+                            modifier = Modifier.clickable { selectedUniversity = uni }
+                        ) {
+                            Text(
+                                text = uni.substringBefore(" (").ifBlank { uni },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) Color.White else DarkTextSecondary,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Department
+                OutlinedTextField(
+                    value = department,
+                    onValueChange = { department = it },
+                    label = { Text("Department / Course") },
+                    leadingIcon = {
+                        Icon(Icons.Default.School, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(20.dp))
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BlinkPink,
+                        unfocusedBorderColor = DarkBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = BlinkPink,
+                        unfocusedLabelColor = DarkTextSecondary,
+                        focusedContainerColor = DarkSurface,
+                        unfocusedContainerColor = DarkSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Academic Level
+                Text(
+                    text = "Academic Level",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    levels.take(4).forEach { lvl ->
+                        val isSelected = selectedLevel == lvl
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = if (isSelected) BlinkPink else DarkSurface,
+                            border = BorderStroke(1.dp, if (isSelected) BlinkPink else DarkBorder),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { selectedLevel = lvl }
+                        ) {
+                            Text(
+                                text = lvl.replace(" Level", "L"),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = if (isSelected) Color.White else DarkTextSecondary,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Campus Interests / Skills
+                Text(
+                    text = "Pick Your Campus Interests & Skills",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(interestOptions) { interest ->
+                        val isSelected = selectedInterests.contains(interest)
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = if (isSelected) Color(0x33FF0055) else DarkSurface,
+                            border = BorderStroke(1.dp, if (isSelected) BlinkPink else DarkBorder),
+                            modifier = Modifier.clickable {
+                                if (isSelected) selectedInterests.remove(interest)
+                                else selectedInterests.add(interest)
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = BlinkPink,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = interest,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) Color.White else DarkTextSecondary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Bio
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { bio = it },
+                    label = { Text("Short Campus Bio") },
+                    minLines = 3,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BlinkPink,
+                        unfocusedBorderColor = DarkBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = BlinkPink,
+                        unfocusedLabelColor = DarkTextSecondary,
+                        focusedContainerColor = DarkSurface,
+                        unfocusedContainerColor = DarkSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(30.dp))
+
+                // Finish Setup Button
+                Button(
+                    onClick = {
+                        onComplete(
+                            selectedUniversity,
+                            department,
+                            selectedLevel,
+                            bio,
+                            selectedInterests.toList()
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
+                    shape = RoundedCornerShape(100.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .shadow(8.dp, RoundedCornerShape(100.dp), ambientColor = BlinkPink)
+                        .testTag("complete_onboarding_btn")
+                ) {
+                    Text(
+                        "Launch Blink Campus 🚀",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
             }
         }
