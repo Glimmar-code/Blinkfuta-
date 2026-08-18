@@ -1,0 +1,118 @@
+package com.example.data.models
+
+data class FeedPost(
+    val id: String,
+    val author: String,
+    val authorAvatar: String,
+    val facultyTag: String = "SIMME",
+    val isVerified: Boolean = true,
+    val timeAgo: String,
+    val text: String,
+    val images: List<String> = emptyList(),
+    var likes: Int,
+    var isLiked: Boolean = false,
+    var commentsCount: Int,
+    var sharesCount: Int,
+    var isBookmarked: Boolean = false,
+    val isReel: Boolean = false,
+    val videoDuration: String = "0:30"
+)
+
+data class Story(
+    val id: String,
+    val username: String,
+    val avatar: String,
+    val hasUnseen: Boolean = true,
+    val isUser: Boolean = false,
+    val storyImage: String = ""
+)
+
+data class ActivityItem(
+    val id: String,
+    val user: String,
+    val avatar: String,
+    val action: String,
+    val time: String,
+    val isUnread: Boolean = false
+)
+
+data class MarketItem(
+    val id: String,
+    val title: String,
+    val price: Long, // Price in Nigerian Naira (₦)
+    val images: List<String>,
+    val sellerUsername: String,
+    val sellerAvatar: String,
+    val sellerName: String,
+    val sellerPhone: String = "+234 812 345 6789",
+    val sellerWhatsapp: String = "+2348123456789",
+    val sellerIsVerified: Boolean = true,
+    val sellerRating: Double = 4.8,
+    val sellerReviewCount: Int = 34,
+    val university: String = "University of Lagos",
+    val location: String = "Akoka Campus, Lagos",
+    val category: String,
+    val condition: String = "Like New",
+    val description: String,
+    val postedTime: String = "2 hours ago",
+    val isFeatured: Boolean = false
+)
+
+data class LeaderboardUser(
+    val rank: Int,
+    val username: String,
+    val fullName: String,
+    val avatar: String,
+    val points: Int,
+    val faculty: String,
+    val university: String,
+    val level: String,
+    val streakDays: Int = 12
+)
+
+data class CommentReply(
+    val id: Long,
+    val user: String,
+    val avatar: String,
+    val text: String,
+    val time: String = "Just now",
+    var likes: Int = 0,
+    var isLiked: Boolean = false
+)
+
+data class Comment(
+    val id: Long,
+    val user: String,
+    val avatar: String,
+    val text: String,
+    val time: String,
+    var likes: Int,
+    var isLiked: Boolean = false,
+    val replies: List<CommentReply> = emptyList()
+)
+
+data class ChatMessage(
+    val id: String,
+    val senderId: String,
+    val text: String,
+    val timestamp: String,
+    val isFromMe: Boolean,
+    val isRead: Boolean = true,
+    val isVoiceNote: Boolean = false,
+    val voiceDuration: String = "",
+    val attachedImageUrl: String? = null
+)
+
+data class ChatConversation(
+    val id: String,
+    val partnerUsername: String,
+    val partnerName: String,
+    val partnerAvatar: String,
+    val isOnline: Boolean,
+    val lastMessage: String,
+    val lastMessageTime: String,
+    val unreadCount: Int = 0,
+    val isVerified: Boolean = false,
+    val faculty: String = "SIMME",
+    val messages: MutableList<ChatMessage> = mutableListOf()
+)

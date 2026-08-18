@@ -1,0 +1,70 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Generated plugin registrants
+lib/generated_plugin_registrant.dart
+
+# iOS
+**/ios/Flutter/.last_build_id
+
+# Android Studio
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Node / Expo / Web
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Environment variables & secrets
+.env
+.env*.local
+
+# IDEs & system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Misc
+*.class
+*.log
+*.pyc
+*.swp
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# Native keystores & certificates
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Logs
+*.err.log
+*.out.log
+
+# AI config
+.continue/
+
+# Debug scripts
+inspect_db.js
+
+# Misc Flutter build artifacts
+app.*.symbols
+app.*.map.json
