@@ -6,8 +6,15 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
+import com.example.notification.BlinkNotificationHelper
 
 class BlinkApplication : Application(), ImageLoaderFactory {
+
+    override fun onCreate() {
+        super.onCreate()
+        // Initialize Android system notification channels
+        BlinkNotificationHelper.createNotificationChannels(this)
+    }
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
@@ -33,7 +40,6 @@ class BlinkApplication : Application(), ImageLoaderFactory {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        // Ensure ashmem & memory trimming on system pressure
         if (level >= TRIM_MEMORY_MODERATE) {
             coil.Coil.imageLoader(this).memoryCache?.clear()
         }
