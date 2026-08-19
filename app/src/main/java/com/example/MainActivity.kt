@@ -185,7 +185,8 @@ fun MainAppContent(
                         onOpenActivity = { viewModel.openActivity(true) },
                         onOpenMenu = { viewModel.openMenu(true) },
                         onToggleTheme = { viewModel.toggleDarkMode() },
-                        onViewedPost = { viewModel.recordPostView(it) }
+                        onViewedPost = { viewModel.recordPostView(it) },
+                        onVotePoll = { postId, optId -> viewModel.votePoll(postId, optId) }
                     )
                 }
 
@@ -210,9 +211,11 @@ fun MainAppContent(
                     MarketScreen(
                         items = uiState.marketItems,
                         isSellerActive = uiState.myProfile.isSellerActive,
+                        verificationBadge = uiState.myProfile.verificationBadge,
                         onItemClick = { viewModel.openProductDetail(it) },
                         onOpenPostItem = { viewModel.openPostItem(true) },
                         onOpenBecomeSeller = { viewModel.openBecomeSeller(true) },
+                        onOpenGetVerified = { viewModel.openGetVerified(true) },
                         isDark = uiState.isDarkMode
                     )
                 }
@@ -307,6 +310,7 @@ fun MainAppContent(
                     onSharePost = { viewModel.sharePost(it) },
                     onOptionsClick = { viewModel.openPostOptions(it) },
                     onProfileClick = { viewModel.openProfile(it) },
+                    onOpenGetVerified = { viewModel.openGetVerified(true) },
                     isDark = uiState.isDarkMode
                 )
             }
@@ -411,13 +415,25 @@ fun MainAppContent(
             )
         }
 
+        // Modals: Get Verified Sheet (Blue ₦800, Gold 1k followers + ₦2,000)
+        if (uiState.isGetVerifiedOpen) {
+            GetVerifiedSheet(
+                profile = uiState.myProfile,
+                isDark = uiState.isDarkMode,
+                onDismiss = { viewModel.openGetVerified(false) },
+                onUpgrade = { tier ->
+                    viewModel.applyVerification(tier)
+                }
+            )
+        }
+
         // Modals: Create Post Sheet
         if (uiState.isCreatePostOpen) {
             CreatePostSheet(
                 profile = uiState.myProfile,
                 onDismiss = { viewModel.openCreatePost(false) },
-                onSubmitPost = { text, faculty, imageUri ->
-                    viewModel.addPost(text, faculty, imageUri)
+                onSubmitPost = { text, faculty, imageUri, videoUri, tags, mentions, poll, isReel ->
+                    viewModel.addPost(text, faculty, imageUri, videoUri, tags, mentions, poll, isReel)
                 },
                 isDark = uiState.isDarkMode
             )

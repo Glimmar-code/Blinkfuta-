@@ -51,7 +51,8 @@ fun FeedScreen(
     onOpenActivity: () -> Unit,
     onOpenMenu: () -> Unit,
     onToggleTheme: () -> Unit,
-    onViewedPost: (String) -> Unit = {}
+    onViewedPost: (String) -> Unit = {},
+    onVotePoll: (postId: String, optionId: String) -> Unit = { _, _ -> }
 ) {
     Box(
         modifier = Modifier
@@ -206,7 +207,8 @@ fun FeedScreen(
                         onShare = { onSharePost(post.id) },
                         onOptionsClick = { onOptionsClick(post) },
                         onProfileClick = onProfileClick,
-                        onViewed = { onViewedPost(post.id) }
+                        onViewed = { onViewedPost(post.id) },
+                        onVotePoll = onVotePoll
                     )
                 }
             }

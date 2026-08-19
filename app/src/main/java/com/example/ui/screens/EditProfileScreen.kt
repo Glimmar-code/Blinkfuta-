@@ -231,6 +231,11 @@ fun EditProfileScreen(
                     value = fullName,
                     onValueChange = { fullName = it },
                     label = { Text("Full Name") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -241,6 +246,10 @@ fun EditProfileScreen(
                     value = username,
                     onValueChange = { username = it },
                     label = { Text("Username") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        autoCorrectEnabled = false,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -251,6 +260,11 @@ fun EditProfileScreen(
                     value = headline,
                     onValueChange = { headline = it },
                     label = { Text("Professional Headline") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -261,6 +275,11 @@ fun EditProfileScreen(
                     value = jobTitle,
                     onValueChange = { jobTitle = it },
                     label = { Text("Current Role / Title") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -271,6 +290,10 @@ fun EditProfileScreen(
                     value = bio,
                     onValueChange = { bio = it },
                     label = { Text("Bio") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                        autoCorrectEnabled = true
+                    ),
                     minLines = 3,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -287,6 +310,11 @@ fun EditProfileScreen(
                     value = university,
                     onValueChange = { university = it },
                     label = { Text("University / Institution") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -297,6 +325,11 @@ fun EditProfileScreen(
                     value = faculty,
                     onValueChange = { faculty = it },
                     label = { Text("Faculty") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -307,6 +340,11 @@ fun EditProfileScreen(
                     value = department,
                     onValueChange = { department = it },
                     label = { Text("Department / Course") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -318,6 +356,10 @@ fun EditProfileScreen(
                         value = academicLevel,
                         onValueChange = { academicLevel = it },
                         label = { Text("Level (e.g. 400L)") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Characters,
+                            imeAction = androidx.compose.ui.text.input.ImeAction.Next
+                        ),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.weight(1f)
                     )
@@ -325,6 +367,10 @@ fun EditProfileScreen(
                         value = graduationYear,
                         onValueChange = { graduationYear = it },
                         label = { Text("Graduation") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                            imeAction = androidx.compose.ui.text.input.ImeAction.Next
+                        ),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.weight(1f)
                     )
@@ -341,6 +387,11 @@ fun EditProfileScreen(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text("Email Address") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Email,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = false
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -351,6 +402,10 @@ fun EditProfileScreen(
                     value = phone,
                     onValueChange = { phone = it },
                     label = { Text("Phone Number") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )

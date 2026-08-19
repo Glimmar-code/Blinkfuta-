@@ -39,6 +39,7 @@ data class BlinkUiState(
     val isEditProfileOpen: Boolean = false,
     val isActivityOpen: Boolean = false,
     val isMenuOpen: Boolean = false,
+    val isGetVerifiedOpen: Boolean = false,
     val activeCommentsPostId: String? = null,
     val activePostOptionsPost: FeedPost? = null,
     val isCreatePostOpen: Boolean = false,
@@ -188,20 +189,17 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loginWithGoogle(email: String = "golowosile@gmail.com") {
-        val derivedUsername = email.substringBefore("@").replace(".", "_").lowercase()
-        val derivedFullName = email.substringBefore("@").replace(".", " ").capitalizeWords()
-        val updatedProfile = _uiState.value.myProfile.copy(
-            email = ContactField(email, true),
-            fullName = if (derivedFullName.isNotBlank()) derivedFullName else "Verified Student",
-            username = if (derivedUsername.isNotBlank()) derivedUsername else "campus_student"
-        )
-        _uiState.value = _uiState.value.copy(
-            myProfile = updatedProfile,
-            destination = AppDestination.MAIN
-        )
-        saveSession(updatedProfile)
-        fetchSupabaseData()
-        showToast("✨ Signed in with Google as @${updatedProfile.username}")
+        viewModelScope.launch {
+            showToast("🔍 Fetching profile from Supabase...")
+            val profile = supabaseService.getOrCreateGoogleProfile(email)
+            _uiState.value = _uiState.value.copy(
+                myProfile = profile,
+                destination = AppDestination.MAIN
+            )
+            saveSession(profile)
+            fetchSupabaseData()
+            showToast("✨ Welcome back, @${profile.username}!")
+        }
     }
 
     fun signUp(fullName: String, username: String, email: String, faculty: String) {
@@ -512,7 +510,16 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
         showToast("🔇 @$username has been muted. Their posts won't appear in your feed.")
     }
 
-    fun addPost(text: String, faculty: String, imageUri: String?) {
+    fun addPost(
+        text: String,
+        faculty: String,
+        imageUri: String?,
+        videoUri: String? = null,
+        tags: List<String> = emptyList(),
+        mentions: List<String> = emptyList(),
+        poll: PostPoll? = null,
+        isReel: Boolean = false
+    ) {
         val newPost = FeedPost(
             id = "p_${System.currentTimeMillis()}",
             author = _uiState.value.myProfile.username,
@@ -522,17 +529,26 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
             timeAgo = "Just now",
             text = text,
             images = if (!imageUri.isNullOrBlank()) listOf(imageUri) else emptyList(),
+            videoUrl = videoUri,
+            tags = tags,
+            mentions = mentions,
+            poll = poll,
+            isReel = isReel,
             likes = 1,
             isLiked = true,
             commentsCount = 0,
             sharesCount = 0,
             viewsCount = 1
         )
+        val updatedPosts = listOf(newPost) + _uiState.value.posts
+        val updatedReels = if (isReel || !videoUri.isNullOrBlank()) listOf(newPost) + _uiState.value.reels else _uiState.value.reels
+
         _uiState.value = _uiState.value.copy(
-            posts = listOf(newPost) + _uiState.value.posts,
+            posts = updatedPosts,
+            reels = updatedReels,
             isCreatePostOpen = false
         )
-        showToast("✨ Post published to Blink campus feed!")
+        showToast(if (isReel) "✨ Campus Reel published!" else "✨ Post published to Blink campus feed!")
 
         // Sync with Supabase in background
         viewModelScope.launch {
@@ -541,9 +557,41 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
                 authorAvatar = _uiState.value.myProfile.avatarUrl,
                 facultyTag = faculty,
                 text = text,
-                imageUrl = imageUri
+                imageUrl = imageUri,
+                videoUrl = videoUri,
+                tags = tags,
+                mentions = mentions,
+                poll = poll,
+                isReel = isReel
             )
         }
+    }
+
+    fun votePoll(postId: String, optionId: String) {
+        val updatedPosts = _uiState.value.posts.map { post ->
+            if (post.id == postId && post.poll != null) {
+                val currentPoll = post.poll
+                val alreadyVotedOption = currentPoll.options.find { it.isVotedByMe }
+                if (alreadyVotedOption?.id == optionId) return@map post
+
+                val updatedOptions = currentPoll.options.map { opt ->
+                    if (opt.id == optionId) {
+                        opt.copy(votes = opt.votes + 1, isVotedByMe = true)
+                    } else if (opt.isVotedByMe) {
+                        opt.copy(votes = maxOf(0, opt.votes - 1), isVotedByMe = false)
+                    } else {
+                        opt
+                    }
+                }
+                val newTotalVotes = if (alreadyVotedOption == null) currentPoll.totalVotes + 1 else currentPoll.totalVotes
+                val updatedPoll = currentPoll.copy(options = updatedOptions, totalVotes = newTotalVotes, hasVoted = true)
+                post.copy(poll = updatedPoll)
+            } else {
+                post
+            }
+        }
+        _uiState.value = _uiState.value.copy(posts = updatedPosts)
+        showToast("🗳️ Vote recorded!")
     }
 
     fun addComment(postId: String, text: String, replyToUser: String? = null) {
@@ -727,6 +775,24 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _snackBarMessages.emit(msg)
         }
+    }
+
+    fun openGetVerified(open: Boolean) {
+        _uiState.value = _uiState.value.copy(isGetVerifiedOpen = open)
+    }
+
+    fun applyVerification(tier: VerificationBadge) {
+        val current = _uiState.value.myProfile
+        val updated = current.copy(
+            verificationBadge = tier,
+            isSellerActive = true // Verified members automatically unlocked for selling on Aluta Market
+        )
+        _uiState.value = _uiState.value.copy(
+            myProfile = updated,
+            isGetVerifiedOpen = false
+        )
+        prefs.edit().putString("verification_badge", tier.name).putBoolean("is_seller_active", true).apply()
+        showToast("🎉 Congratulations! You have successfully upgraded to ${if (tier == VerificationBadge.GOLD) "Gold VIP" else "Blue Student"} Verification.")
     }
 
     fun simulateBackgroundNotification(context: android.content.Context) {

@@ -62,6 +62,7 @@ fun ProfileScreen(
     onSharePost: (String) -> Unit,
     onOptionsClick: (FeedPost) -> Unit,
     onProfileClick: (String) -> Unit,
+    onOpenGetVerified: () -> Unit = {},
     isDark: Boolean
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -206,24 +207,57 @@ fun ProfileScreen(
                                 Button(
                                     onClick = onEditProfileClick,
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = BlinkPink
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     ),
                                     shape = RoundedCornerShape(100.dp),
-                                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                                     modifier = Modifier.testTag("profile_edit_profile_btn")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Edit,
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = textPrimary,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        "Edit",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp,
+                                        color = textPrimary
+                                    )
+                                }
+
+                                // Get Verified Button
+                                Button(
+                                    onClick = onOpenGetVerified,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = when (profile.verificationBadge) {
+                                            VerificationBadge.GOLD -> BlinkGold
+                                            VerificationBadge.BLUE -> BlinkBlue
+                                            VerificationBadge.NONE -> BlinkPink
+                                        }
+                                    ),
+                                    shape = RoundedCornerShape(100.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                    modifier = Modifier.testTag("profile_get_verified_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Verified,
+                                        contentDescription = null,
+                                        tint = if (profile.verificationBadge == VerificationBadge.GOLD) Color.Black else Color.White,
                                         modifier = Modifier.size(16.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(5.dp))
                                     Text(
-                                        "Edit Profile",
+                                        text = when (profile.verificationBadge) {
+                                            VerificationBadge.GOLD -> "Gold VIP"
+                                            VerificationBadge.BLUE -> "Upgrade Gold"
+                                            VerificationBadge.NONE -> "Get Verified"
+                                        },
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color.White
+                                        fontSize = 12.5.sp,
+                                        color = if (profile.verificationBadge == VerificationBadge.GOLD) Color.Black else Color.White
                                     )
                                 }
                             } else {
@@ -531,11 +565,13 @@ fun ProfileScreen(
                         item {
                             SkillsAndBadgesSection(
                                 profile = profile,
+                                isMe = isMe,
                                 cardBg = cardBg,
                                 borderColor = borderColor,
                                 textPrimary = textPrimary,
                                 textSecondary = textSecondary,
-                                onEndorseSkill = onEndorseSkill
+                                onEndorseSkill = onEndorseSkill,
+                                onOpenGetVerified = onOpenGetVerified
                             )
                         }
                     }
@@ -547,11 +583,13 @@ fun ProfileScreen(
                         item {
                             SkillsAndBadgesSection(
                                 profile = profile,
+                                isMe = isMe,
                                 cardBg = cardBg,
                                 borderColor = borderColor,
                                 textPrimary = textPrimary,
                                 textSecondary = textSecondary,
-                                onEndorseSkill = onEndorseSkill
+                                onEndorseSkill = onEndorseSkill,
+                                onOpenGetVerified = onOpenGetVerified
                             )
                         }
                     } else {
@@ -585,11 +623,13 @@ fun ProfileScreen(
 @Composable
 private fun SkillsAndBadgesSection(
     profile: UserProfile,
+    isMe: Boolean,
     cardBg: Color,
     borderColor: Color,
     textPrimary: Color,
     textSecondary: Color,
-    onEndorseSkill: (String) -> Unit
+    onEndorseSkill: (String) -> Unit,
+    onOpenGetVerified: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -597,6 +637,88 @@ private fun SkillsAndBadgesSection(
             .padding(horizontal = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Verification & Trust Banner
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = cardBg,
+            border = BorderStroke(
+                1.5.dp,
+                when (profile.verificationBadge) {
+                    VerificationBadge.GOLD -> BlinkGold
+                    VerificationBadge.BLUE -> BlinkBlue
+                    VerificationBadge.NONE -> borderColor
+                }
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        VerifiedMark(
+                            badge = if (profile.verificationBadge == VerificationBadge.NONE) VerificationBadge.BLUE else profile.verificationBadge,
+                            size = 28.dp
+                        )
+                        Column {
+                            Text(
+                                text = when (profile.verificationBadge) {
+                                    VerificationBadge.GOLD -> "Gold VIP Verified"
+                                    VerificationBadge.BLUE -> "Blue Verified Student"
+                                    VerificationBadge.NONE -> "Get Campus Verified"
+                                },
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textPrimary
+                            )
+                            Text(
+                                text = when (profile.verificationBadge) {
+                                    VerificationBadge.GOLD -> "5x Post Reach • Top Aluta Merchant Pro"
+                                    VerificationBadge.BLUE -> "Verified Member • Aluta Market Posting Active"
+                                    VerificationBadge.NONE -> "Blue (₦800) • Gold (1k Followers + ₦2,000)"
+                                },
+                                fontSize = 11.5.sp,
+                                color = textSecondary
+                            )
+                        }
+                    }
+
+                    if (isMe) {
+                        Button(
+                            onClick = onOpenGetVerified,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = when (profile.verificationBadge) {
+                                    VerificationBadge.GOLD -> BlinkGold
+                                    VerificationBadge.BLUE -> BlinkBlue
+                                    VerificationBadge.NONE -> BlinkPink
+                                }
+                            ),
+                            shape = RoundedCornerShape(100.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = when (profile.verificationBadge) {
+                                    VerificationBadge.GOLD -> "VIP Status"
+                                    VerificationBadge.BLUE -> "Upgrade Gold"
+                                    VerificationBadge.NONE -> "Get Verified"
+                                },
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (profile.verificationBadge == VerificationBadge.GOLD) Color.Black else Color.White
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
         Text(
             text = "Skills & Campus Endorsements",
             fontSize = 15.sp,

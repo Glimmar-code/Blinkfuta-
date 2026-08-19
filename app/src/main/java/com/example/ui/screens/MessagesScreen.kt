@@ -148,6 +148,11 @@ fun MessagesScreen(
                                 fontSize = 13.sp
                             )
                         },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            imeAction = androidx.compose.ui.text.input.ImeAction.Search,
+                            autoCorrectEnabled = true
+                        ),
+                        singleLine = true,
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
@@ -383,6 +388,19 @@ fun ChatConversationView(
                         placeholder = {
                             Text("Type a message...", fontSize = 13.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                            imeAction = androidx.compose.ui.text.input.ImeAction.Send,
+                            autoCorrectEnabled = true
+                        ),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                            onSend = {
+                                if (messageText.isNotBlank()) {
+                                    onSendMessage(messageText.trim())
+                                    messageText = ""
+                                }
+                            }
+                        ),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,

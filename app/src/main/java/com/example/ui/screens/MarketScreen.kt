@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +35,7 @@ import com.example.data.models.MarketItem
 import com.example.data.models.VerificationBadge
 import com.example.data.models.kMarketCategoriesList
 import com.example.ui.components.VerifiedMark
+import com.example.ui.theme.BlinkBlue
 import com.example.ui.theme.BlinkGold
 import com.example.ui.theme.BlinkPink
 import com.example.ui.theme.BlinkPurple
@@ -45,13 +47,18 @@ import java.util.Locale
 fun MarketScreen(
     items: List<MarketItem>,
     isSellerActive: Boolean,
+    verificationBadge: VerificationBadge = VerificationBadge.NONE,
     onItemClick: (MarketItem) -> Unit,
     onOpenPostItem: () -> Unit,
     onOpenBecomeSeller: () -> Unit,
+    onOpenGetVerified: () -> Unit = {},
     isDark: Boolean
 ) {
     var selectedCategory by remember { mutableStateOf("All Categories") }
     var searchQuery by remember { mutableStateOf("") }
+    var showVerificationRequiredDialog by remember { mutableStateOf(false) }
+
+    val searchSuggestions = listOf("iPhone", "MacBook", "Lab Coat", "Calculators", "Hostel Space", "JBL Speaker", "Textbooks")
 
     val filteredItems = remember(selectedCategory, searchQuery, items) {
         items.filter { item ->
@@ -63,6 +70,8 @@ fun MarketScreen(
             matchCat && matchQuery
         }
     }
+
+    val isVerified = verificationBadge != VerificationBadge.NONE
 
     LazyColumn(
         contentPadding = PaddingValues(bottom = 120.dp),
@@ -108,10 +117,16 @@ fun MarketScreen(
                         )
                     }
 
-                    // Post Item Button
+                    // Post Item Button (Gated by Verification)
                     Button(
                         onClick = {
-                            if (isSellerActive) onOpenPostItem() else onOpenBecomeSeller()
+                            if (!isVerified) {
+                                showVerificationRequiredDialog = true
+                            } else if (isSellerActive) {
+                                onOpenPostItem()
+                            } else {
+                                onOpenBecomeSeller()
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
                         shape = RoundedCornerShape(100.dp),
@@ -126,44 +141,83 @@ fun MarketScreen(
             }
         }
 
-        // Search Bar
+        // Search Bar with Auto-Complete & Suggestions
         item {
-            Surface(
-                color = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFEFEFF4),
-                shape = RoundedCornerShape(100.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    color = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFEFEFF4),
+                    shape = RoundedCornerShape(100.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search Market",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    TextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search Market",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = {
+                                Text(
+                                    "Search gadgets, textbooks, hostels, fashion...",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp
+                                )
+                            },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Search,
+                                autoCorrectEnabled = true
+                            ),
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear search", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("market_search_input")
+                        )
+                    }
+                }
+
+                // Autocomplete Quick-Search Chips
+                androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(searchSuggestions) { suggestion ->
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = if (searchQuery.equals(suggestion, ignoreCase = true)) BlinkPink.copy(alpha = 0.2f) else if (isDark) Color(0xFF221A2E) else Color(0xFFEFEFF4),
+                            border = if (searchQuery.equals(suggestion, ignoreCase = true)) androidx.compose.foundation.BorderStroke(1.dp, BlinkPink) else null,
+                            modifier = Modifier.clickable {
+                                searchQuery = if (searchQuery.equals(suggestion, ignoreCase = true)) "" else suggestion
+                            }
+                        ) {
                             Text(
-                                "Search gadgets, textbooks, hostels, fashion...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 13.sp
+                                text = suggestion,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (searchQuery.equals(suggestion, ignoreCase = true)) BlinkPink else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
-                        },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("market_search_input")
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -299,6 +353,73 @@ fun MarketScreen(
                 }
             }
         }
+    }
+
+    if (showVerificationRequiredDialog) {
+        AlertDialog(
+            onDismissRequest = { showVerificationRequiredDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.VerifiedUser,
+                    contentDescription = null,
+                    tint = BlinkPink,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Verification Required to Sell",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "To protect students from fraud and ensure a trusted campus marketplace, only verified members can post listings on Aluta Market.",
+                        fontSize = 13.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 19.sp
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = BlinkBlue.copy(alpha = 0.1f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BlinkBlue.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(10.dp)
+                        ) {
+                            VerifiedMark(badge = VerificationBadge.BLUE, size = 20.dp)
+                            Column {
+                                Text("Get Blue Verified (₦800)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = BlinkBlue)
+                                Text("One-time campus verification • Unlimited market posts", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showVerificationRequiredDialog = false
+                        onOpenGetVerified()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BlinkPink),
+                    shape = RoundedCornerShape(100.dp)
+                ) {
+                    Text("Get Verified (₦800)", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVerificationRequiredDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

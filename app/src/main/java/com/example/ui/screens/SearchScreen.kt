@@ -90,6 +90,11 @@ fun SearchScreen(
                             fontSize = 13.5.sp
                         )
                     },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Search,
+                        autoCorrectEnabled = true
+                    ),
+                    singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,

@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -43,6 +44,7 @@ fun PostCard(
     onOptionsClick: () -> Unit,
     onProfileClick: (String) -> Unit,
     onViewed: () -> Unit = {},
+    onVotePoll: (postId: String, optionId: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     LaunchedEffect(post.id) {
@@ -164,16 +166,161 @@ fun PostCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Post content text with highlighted hashtags and mentions
-            HighlightedText(
-                text = post.text,
-                accentColor = BlinkPink,
-                textColor = MaterialTheme.colorScheme.onSurface
-            )
+            if (post.text.isNotBlank()) {
+                HighlightedText(
+                    text = post.text,
+                    accentColor = BlinkPink,
+                    textColor = MaterialTheme.colorScheme.onSurface
+                )
+            }
 
-            // Post Images
-            if (post.images.isNotEmpty()) {
+            // Attached Tags & Mentions Pills
+            if (post.tags.isNotEmpty() || post.mentions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    post.tags.forEach { tag ->
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = BlinkPink.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = tag,
+                                color = BlinkPink,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                    post.mentions.forEach { m ->
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = BlinkPurple.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = "@$m",
+                                color = BlinkPurple,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Interactive Poll Card
+            if (post.poll != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                val poll = post.poll
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.Poll, contentDescription = null, tint = BlinkPink, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = poll.question,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val total = if (poll.totalVotes > 0) poll.totalVotes else 1
+                        poll.options.forEach { opt ->
+                            val pct = ((opt.votes.toFloat() / total) * 100).toInt()
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (opt.isVotedByMe) BlinkPink.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface,
+                                border = if (opt.isVotedByMe) androidx.compose.foundation.BorderStroke(1.dp, BlinkPink) else null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .clickable { onVotePoll(post.id, opt.id) }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = opt.text,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (opt.isVotedByMe) FontWeight.Bold else FontWeight.Normal,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (poll.hasVoted || opt.isVotedByMe) "$pct% (${opt.votes})" else "${opt.votes} votes",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (opt.isVotedByMe) BlinkPink else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${poll.totalVotes} total votes • Live campus poll",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Post Images or Video Preview
+            if (post.images.isNotEmpty() || post.videoUrl != null || post.isReel) {
                 Spacer(modifier = Modifier.height(12.dp))
-                if (post.images.size == 1) {
+                if (post.videoUrl != null || post.isReel) {
+                    // Video Reel Card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF191826)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (post.images.isNotEmpty()) {
+                            AsyncImage(
+                                model = post.images[0],
+                                contentDescription = "Video thumbnail",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().alpha(0.6f)
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.PlayCircleFilled,
+                                contentDescription = "Play Reel",
+                                tint = Color.White,
+                                modifier = Modifier.size(52.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(100.dp),
+                                color = Color.Black.copy(alpha = 0.6f)
+                            ) {
+                                Text(
+                                    text = "Campus Reel • ${post.videoDuration}",
+                                    color = Color.White,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                } else if (post.images.size == 1) {
                     AsyncImage(
                         model = post.images[0],
                         contentDescription = "Post image",

@@ -107,6 +107,11 @@ fun BecomeSellerScreen(
                     value = storeName,
                     onValueChange = { storeName = it },
                     label = { Text("Business / Store Name") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -118,6 +123,10 @@ fun BecomeSellerScreen(
                     value = phone,
                     onValueChange = { phone = it },
                     label = { Text("Contact Phone Number") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -129,6 +138,10 @@ fun BecomeSellerScreen(
                     value = whatsapp,
                     onValueChange = { whatsapp = it },
                     label = { Text("WhatsApp Business Number") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Next
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -174,6 +187,11 @@ fun BecomeSellerScreen(
                     value = city,
                     onValueChange = { city = it },
                     label = { Text("Campus / City / Hostel Location") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done,
+                        autoCorrectEnabled = true
+                    ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
