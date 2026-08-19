@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.models.FeedPost
+import com.example.data.models.VerificationBadge
 import com.example.ui.components.FacultyBadge
+import com.example.ui.components.VerifiedMark
 import com.example.ui.theme.BlinkPink
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -205,6 +207,11 @@ fun SearchScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
+                                if (post.verificationBadge != VerificationBadge.NONE) {
+                                    VerifiedMark(badge = post.verificationBadge, size = 11.dp)
+                                } else if (post.isVerified) {
+                                    VerifiedMark(badge = VerificationBadge.BLUE, size = 11.dp)
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(6.dp))

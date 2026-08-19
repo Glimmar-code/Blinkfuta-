@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -231,7 +232,13 @@ fun MarketScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable { onOpenBecomeSeller() }
+                        .clickable { 
+                            if (!isVerified) {
+                                showVerificationRequiredDialog = true
+                            } else {
+                                onOpenBecomeSeller() 
+                            }
+                        }
                 ) {
                     Box(
                         modifier = Modifier
@@ -437,6 +444,7 @@ fun ProductCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize()
             .clickable { onClick() }
             .testTag("product_card_${item.id}")
     ) {
@@ -509,8 +517,10 @@ fun ProductCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    if (item.sellerIsVerified) {
-                        VerifiedMark(badge = VerificationBadge.GOLD, size = 12.dp)
+                    if (item.verificationBadge != VerificationBadge.NONE) {
+                        VerifiedMark(badge = item.verificationBadge, size = 12.dp)
+                    } else if (item.sellerIsVerified) {
+                        VerifiedMark(badge = VerificationBadge.BLUE, size = 12.dp)
                     }
                 }
             }

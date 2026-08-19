@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
                                     OnboardingScreen(
                                         onSignInClick = { viewModel.setDestination(AppDestination.SIGN_IN) },
                                         onSignUpClick = { viewModel.setDestination(AppDestination.SIGN_UP) },
-                                        onGoogleSignIn = { viewModel.loginWithGoogle() }
+                                        onGoogleSignIn = { email -> viewModel.loginWithGoogle(email) }
                                     )
                                 }
 
@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
                                         onSignInWithCredentials = { emailOrUser, password, onResult ->
                                             viewModel.signInWithCredentials(emailOrUser, password, onResult)
                                         },
-                                        onGoogleSignIn = { viewModel.loginWithGoogle() },
+                                        onGoogleSignIn = { email -> viewModel.loginWithGoogle(email) },
                                         onForgotPassword = { email, onResult ->
                                             viewModel.sendPasswordReset(email, onResult)
                                         },
@@ -102,7 +102,7 @@ class MainActivity : ComponentActivity() {
                                         onSuccess = { name, user, email, fac ->
                                             viewModel.signUp(name, user, email, fac)
                                         },
-                                        onGoogleSignUp = { viewModel.loginWithGoogle() },
+                                        onGoogleSignUp = { email -> viewModel.loginWithGoogle(email) },
                                         onSwitchToSignIn = { viewModel.setDestination(AppDestination.SIGN_IN) }
                                     )
                                 }
@@ -162,7 +162,14 @@ fun MainAppContent(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Main Tab Content
-        Crossfade(targetState = uiState.selectedTab, label = "TabCrossfade") { tab ->
+        androidx.compose.animation.AnimatedContent(
+            targetState = uiState.selectedTab,
+            label = "TabAnimatedContent",
+            transitionSpec = {
+                androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { 50 }) togetherWith 
+                androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { -50 })
+            }
+        ) { tab ->
             when (tab) {
                 MainTab.HOME -> {
                     FeedScreen(
@@ -245,12 +252,16 @@ fun MainAppContent(
                 !uiState.isConversationFullScreen &&
                 (uiState.selectedTab != MainTab.HOME || uiState.feedSubTab == 0)
 
-        if (shouldShowBottomBar) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = shouldShowBottomBar,
+            enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + androidx.compose.animation.fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
             FloatingBottomBar(
                 currentTab = uiState.selectedTab,
                 onTabSelected = { viewModel.setTab(it) },
-                isDark = uiState.isDarkMode,
-                modifier = Modifier.align(Alignment.BottomCenter)
+                isDark = uiState.isDarkMode
             )
         }
 
@@ -294,12 +305,23 @@ fun MainAppContent(
                 val profileLikedPosts = (uiState.posts + uiState.reels).filter { it.isLiked }
                 val profileSavedPosts = (uiState.posts + uiState.reels).filter { it.isBookmarked }
 
+                val userMarketItems = if (isMyProfile) {
+                    uiState.marketItems.filter {
+                        it.sellerUsername.equals(uiState.myProfile.username, ignoreCase = true) ||
+                        it.sellerUsername.equals("efe.design", ignoreCase = true) ||
+                        it.sellerUsername.equals("golowosile", ignoreCase = true)
+                    }
+                } else {
+                    uiState.marketItems.filter { it.sellerUsername.equals(profile.username, ignoreCase = true) }
+                }
+
                 ProfileScreen(
                     profile = profile,
                     isMe = isMyProfile,
                     userPosts = profilePosts,
                     likedPosts = profileLikedPosts,
                     savedPosts = profileSavedPosts,
+                    userMarketItems = userMarketItems,
                     onBack = { viewModel.closeProfile() },
                     onEditProfileClick = { viewModel.openEditProfile(true) },
                     onDirectMessage = { partner -> viewModel.openChatWithUser(partner) },
@@ -310,6 +332,7 @@ fun MainAppContent(
                     onSharePost = { viewModel.sharePost(it) },
                     onOptionsClick = { viewModel.openPostOptions(it) },
                     onProfileClick = { viewModel.openProfile(it) },
+                    onMarketItemClick = { viewModel.openProductDetail(it) },
                     onOpenGetVerified = { viewModel.openGetVerified(true) },
                     isDark = uiState.isDarkMode
                 )

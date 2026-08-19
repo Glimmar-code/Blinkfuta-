@@ -45,14 +45,14 @@ data class BlinkUiState(
     val isCreatePostOpen: Boolean = false,
     val activeConversationPartner: String? = null,
     val isConversationFullScreen: Boolean = false,
-    val stories: List<Story> = BlinkDemoData.initialStories(),
-    val posts: List<FeedPost> = BlinkDemoData.initialPosts(),
-    val reels: List<FeedPost> = BlinkDemoData.initialReels(),
-    val marketItems: List<MarketItem> = BlinkDemoData.initialMarketItems(),
-    val leaderboardUsers: List<LeaderboardUser> = BlinkDemoData.initialLeaderboard(),
-    val conversations: List<ChatConversation> = BlinkDemoData.initialConversations(),
-    val activities: List<ActivityItem> = BlinkDemoData.initialActivities(),
-    val comments: List<Comment> = BlinkDemoData.initialComments(),
+    val stories: List<Story> = emptyList(),
+    val posts: List<FeedPost> = emptyList(),
+    val reels: List<FeedPost> = emptyList(),
+    val marketItems: List<MarketItem> = emptyList(),
+    val leaderboardUsers: List<LeaderboardUser> = emptyList(),
+    val conversations: List<ChatConversation> = emptyList(),
+    val activities: List<ActivityItem> = emptyList(),
+    val comments: List<Comment> = emptyList(),
     val mutedUsers: Set<String> = emptySet(),
     val feedSubTab: Int = 0, // 0: Posts, 1: Reels
     val isLiveSupabaseConnected: Boolean = true
@@ -131,6 +131,12 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
                 val liveConversations = supabaseService.fetchMessages()
                 if (liveConversations.isNotEmpty()) {
                     _uiState.value = _uiState.value.copy(conversations = liveConversations)
+                }
+
+                // Fetch Leaderboard from Supabase
+                val liveLeaderboard = supabaseService.fetchLeaderboard()
+                if (liveLeaderboard.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(leaderboardUsers = liveLeaderboard)
                 }
             } catch (e: Exception) {
                 // Silent fallback to rich local state
@@ -520,12 +526,14 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
         poll: PostPoll? = null,
         isReel: Boolean = false
     ) {
+        val myBadge = _uiState.value.myProfile.verificationBadge
         val newPost = FeedPost(
             id = "p_${System.currentTimeMillis()}",
             author = _uiState.value.myProfile.username,
             authorAvatar = _uiState.value.myProfile.avatarUrl,
             facultyTag = faculty,
-            isVerified = _uiState.value.myProfile.verificationBadge != VerificationBadge.NONE,
+            isVerified = myBadge != VerificationBadge.NONE,
+            verificationBadge = myBadge,
             timeAgo = "Just now",
             text = text,
             images = if (!imageUri.isNullOrBlank()) listOf(imageUri) else emptyList(),
@@ -675,6 +683,7 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
         description: String,
         imageUrl: String?
     ) {
+        val myBadge = _uiState.value.myProfile.verificationBadge
         val newItem = MarketItem(
             id = "m_${System.currentTimeMillis()}",
             title = title,
@@ -685,7 +694,8 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
             sellerName = _uiState.value.myProfile.fullName,
             sellerPhone = _uiState.value.myProfile.phone.value,
             sellerWhatsapp = _uiState.value.myProfile.whatsapp.value,
-            sellerIsVerified = true,
+            sellerIsVerified = myBadge != VerificationBadge.NONE,
+            verificationBadge = myBadge,
             university = _uiState.value.myProfile.university,
             location = _uiState.value.myProfile.currentCityState,
             category = category,
@@ -787,8 +797,27 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
             verificationBadge = tier,
             isSellerActive = true // Verified members automatically unlocked for selling on Aluta Market
         )
+        val myUsername = current.username
+        val updatedPosts = _uiState.value.posts.map {
+            if (it.author.equals(myUsername, ignoreCase = true) || it.author.equals(current.fullName, ignoreCase = true) || it.author == "efe.design" || it.author == "golowosile") {
+                it.copy(verificationBadge = tier, isVerified = tier != VerificationBadge.NONE)
+            } else it
+        }
+        val updatedReels = _uiState.value.reels.map {
+            if (it.author.equals(myUsername, ignoreCase = true) || it.author.equals(current.fullName, ignoreCase = true) || it.author == "efe.design" || it.author == "golowosile") {
+                it.copy(verificationBadge = tier, isVerified = tier != VerificationBadge.NONE)
+            } else it
+        }
+        val updatedMarket = _uiState.value.marketItems.map {
+            if (it.sellerUsername.equals(myUsername, ignoreCase = true) || it.sellerUsername.equals("efe.design", ignoreCase = true) || it.sellerUsername.equals("golowosile", ignoreCase = true)) {
+                it.copy(verificationBadge = tier, sellerIsVerified = tier != VerificationBadge.NONE)
+            } else it
+        }
         _uiState.value = _uiState.value.copy(
             myProfile = updated,
+            posts = updatedPosts,
+            reels = updatedReels,
+            marketItems = updatedMarket,
             isGetVerifiedOpen = false
         )
         prefs.edit().putString("verification_badge", tier.name).putBoolean("is_seller_active", true).apply()

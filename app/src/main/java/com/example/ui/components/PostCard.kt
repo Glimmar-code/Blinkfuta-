@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -61,6 +62,7 @@ fun PostCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .testTag("post_card_${post.id}")
+            .animateContentSize()
     ) {
         Column(
             modifier = Modifier
@@ -101,7 +103,9 @@ fun PostCard(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
 
-                            if (post.isVerified) {
+                            if (post.verificationBadge != VerificationBadge.NONE) {
+                                VerifiedMark(badge = post.verificationBadge, size = 14.dp)
+                            } else if (post.isVerified) {
                                 VerifiedMark(badge = VerificationBadge.BLUE, size = 14.dp)
                             }
 

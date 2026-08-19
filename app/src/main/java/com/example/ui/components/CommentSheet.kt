@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.models.Comment
+import com.example.data.models.VerificationBadge
 import com.example.ui.theme.BlinkPink
 import com.example.ui.theme.BlinkPurple
 
@@ -154,7 +155,7 @@ fun CommentSheet(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
                                             text = comment.user,
@@ -163,6 +164,9 @@ fun CommentSheet(
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.clickable { onProfileClick(comment.user) }
                                         )
+                                        if (comment.verificationBadge != VerificationBadge.NONE) {
+                                            VerifiedMark(badge = comment.verificationBadge, size = 12.dp)
+                                        }
                                         Text(
                                             text = comment.time,
                                             fontSize = 11.sp,
@@ -263,6 +267,9 @@ fun CommentSheet(
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.clickable { onProfileClick(reply.user) }
                                                 )
+                                                if (reply.verificationBadge != VerificationBadge.NONE) {
+                                                    VerifiedMark(badge = reply.verificationBadge, size = 11.dp)
+                                                }
                                                 Text(
                                                     text = reply.time,
                                                     fontSize = 10.5.sp,

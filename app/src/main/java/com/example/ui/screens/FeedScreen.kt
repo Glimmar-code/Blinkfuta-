@@ -196,20 +196,57 @@ fun FeedScreen(
                     }
                 }
 
-                // Feed Posts List
-                items(posts, key = { it.id }) { post ->
-                    PostCard(
-                        post = post,
-                        isDark = isDark,
-                        onLike = { onLikePost(post.id) },
-                        onComment = { onCommentPost(post.id) },
-                        onBookmark = { onBookmarkPost(post.id) },
-                        onShare = { onSharePost(post.id) },
-                        onOptionsClick = { onOptionsClick(post) },
-                        onProfileClick = onProfileClick,
-                        onViewed = { onViewedPost(post.id) },
-                        onVotePoll = onVotePoll
-                    )
+                // Content Switcher
+                item {
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = currentSubTab,
+                        label = "FeedTabAnimation",
+                        transitionSpec = {
+                            androidx.compose.animation.fadeIn() togetherWith androidx.compose.animation.fadeOut()
+                        }
+                    ) { targetTab ->
+                        Column {
+                            if (targetTab == 0) {
+                                posts.forEach { post ->
+                                    PostCard(
+                                        post = post,
+                                        isDark = isDark,
+                                        onLike = { onLikePost(post.id) },
+                                        onComment = { onCommentPost(post.id) },
+                                        onBookmark = { onBookmarkPost(post.id) },
+                                        onShare = { onSharePost(post.id) },
+                                        onOptionsClick = { onOptionsClick(post) },
+                                        onProfileClick = onProfileClick,
+                                        onViewed = { onViewedPost(post.id) },
+                                        onVotePoll = onVotePoll
+                                    )
+                                }
+                            } else {
+                                reels.forEach { reel ->
+                                    PostCard(
+                                        post = reel,
+                                        isDark = isDark,
+                                        onLike = { onLikePost(reel.id) },
+                                        onComment = { onCommentPost(reel.id) },
+                                        onBookmark = { onBookmarkPost(reel.id) },
+                                        onShare = { onSharePost(reel.id) },
+                                        onOptionsClick = { onOptionsClick(reel) },
+                                        onProfileClick = onProfileClick,
+                                        onViewed = { onViewedPost(reel.id) },
+                                        onVotePoll = onVotePoll
+                                    )
+                                }
+                                if (reels.isEmpty()) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(40.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("No reels available yet ✨", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

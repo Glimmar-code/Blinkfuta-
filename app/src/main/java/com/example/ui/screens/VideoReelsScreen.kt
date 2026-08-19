@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.models.FeedPost
+import com.example.data.models.VerificationBadge
+import com.example.ui.components.VerifiedMark
 import com.example.ui.components.formatNumber
 import com.example.ui.theme.BlinkPink
 import com.example.ui.theme.BlinkPurple
@@ -204,6 +206,12 @@ fun VideoReelsScreen(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
+
+                        if (reel.verificationBadge != VerificationBadge.NONE) {
+                            VerifiedMark(badge = reel.verificationBadge, size = 14.dp)
+                        } else if (reel.isVerified) {
+                            VerifiedMark(badge = VerificationBadge.BLUE, size = 14.dp)
+                        }
 
                         Surface(
                             shape = RoundedCornerShape(100.dp),

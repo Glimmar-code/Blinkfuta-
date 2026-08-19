@@ -120,8 +120,10 @@ fun SplashScreen(
 fun OnboardingScreen(
     onSignInClick: () -> Unit,
     onSignUpClick: () -> Unit,
-    onGoogleSignIn: () -> Unit
+    onGoogleSignIn: (String) -> Unit
 ) {
+    var showGoogleDialog by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -233,7 +235,7 @@ fun OnboardingScreen(
                 // Continue with Google / Gmail
                 GoogleSignInButton(
                     text = "Continue with Google / Gmail",
-                    onClick = onGoogleSignIn,
+                    onClick = { showGoogleDialog = true },
                     modifier = Modifier.testTag("onboarding_google_btn")
                 )
 
@@ -275,6 +277,16 @@ fun OnboardingScreen(
                 }
             }
         }
+        
+        if (showGoogleDialog) {
+            GoogleSignInSimulatorDialog(
+                onDismiss = { showGoogleDialog = false },
+                onConfirm = { email ->
+                    showGoogleDialog = false
+                    onGoogleSignIn(email)
+                }
+            )
+        }
     }
 }
 
@@ -283,7 +295,7 @@ fun OnboardingScreen(
 fun SignInScreen(
     onBack: () -> Unit,
     onSignInWithCredentials: (emailOrUsername: String, password: String, onResult: (Boolean, String?) -> Unit) -> Unit,
-    onGoogleSignIn: () -> Unit,
+    onGoogleSignIn: (String) -> Unit,
     onForgotPassword: (email: String, onResult: (Boolean, String) -> Unit) -> Unit,
     onSwitchToSignUp: () -> Unit
 ) {
@@ -293,6 +305,7 @@ fun SignInScreen(
     var isSubmitting by remember { mutableStateOf(false) }
     var authError by remember { mutableStateOf<String?>(null) }
     var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var showGoogleDialog by remember { mutableStateOf(false) }
     var isLoadingGoogle by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -352,7 +365,7 @@ fun SignInScreen(
                         coroutineScope.launch {
                             delay(300)
                             isLoadingGoogle = false
-                            onGoogleSignIn()
+                            showGoogleDialog = true
                         }
                     },
                     modifier = Modifier.testTag("signin_google_btn")
@@ -574,6 +587,16 @@ fun SignInScreen(
                 onSendReset = onForgotPassword
             )
         }
+
+        if (showGoogleDialog) {
+            GoogleSignInSimulatorDialog(
+                onDismiss = { showGoogleDialog = false },
+                onConfirm = { email ->
+                    showGoogleDialog = false
+                    onGoogleSignIn(email)
+                }
+            )
+        }
     }
 }
 
@@ -738,7 +761,7 @@ fun ForgotPasswordDialog(
 fun SignUpScreen(
     onBack: () -> Unit,
     onSuccess: (fullName: String, username: String, email: String, faculty: String) -> Unit,
-    onGoogleSignUp: () -> Unit,
+    onGoogleSignUp: (String) -> Unit,
     onSwitchToSignIn: () -> Unit
 ) {
     var fullName by remember { mutableStateOf("Gbolahan Olowosile") }
@@ -747,6 +770,7 @@ fun SignUpScreen(
     var password by remember { mutableStateOf("password123") }
     var faculty by remember { mutableStateOf("SIMME") }
     var isLoadingGoogle by remember { mutableStateOf(false) }
+    var showGoogleDialog by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -805,7 +829,7 @@ fun SignUpScreen(
                         coroutineScope.launch {
                             delay(300)
                             isLoadingGoogle = false
-                            onGoogleSignUp()
+                            showGoogleDialog = true
                         }
                     },
                     modifier = Modifier.testTag("signup_google_btn")
@@ -1057,6 +1081,16 @@ fun SignUpScreen(
                     }
                 }
             }
+        }
+        
+        if (showGoogleDialog) {
+            GoogleSignInSimulatorDialog(
+                onDismiss = { showGoogleDialog = false },
+                onConfirm = { email ->
+                    showGoogleDialog = false
+                    onGoogleSignUp(email)
+                }
+            )
         }
     }
 }
@@ -1346,6 +1380,88 @@ fun ProfileSetupOnboardingScreen(
 /**
  * Premium Google / Gmail Multi-colored Sign In Button
  */
+@Composable
+fun GoogleSignInSimulatorDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = DarkSurface,
+            border = BorderStroke(1.dp, DarkBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp)
+            ) {
+                GoogleLogoVector(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Sign in with Google",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Enter your Gmail address to continue to Blink Campus.",
+                    fontSize = 13.5.sp,
+                    color = DarkTextSecondary,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    placeholder = { Text("example@gmail.com") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Email
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BlinkPink,
+                        unfocusedBorderColor = DarkBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = BorderStroke(1.dp, DarkBorder)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            if (email.isNotBlank()) {
+                                onConfirm(email.trim())
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = BlinkPink)
+                    ) {
+                        Text("Next")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun GoogleSignInButton(
     text: String,

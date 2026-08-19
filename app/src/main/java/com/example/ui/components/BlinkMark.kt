@@ -127,20 +127,22 @@ fun VerifiedMark(
 ) {
     if (badge == VerificationBadge.NONE) return
 
-    val color = if (badge == VerificationBadge.GOLD) BlinkGold else BlinkBlue
+    val isGold = badge == VerificationBadge.GOLD
+    val bgColor = if (isGold) BlinkGold else BlinkBlue
+    val iconTint = if (isGold) Color.Black else Color.White
 
     Box(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(color),
+            .background(bgColor),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Default.Check,
-            contentDescription = "Verified",
-            tint = Color.White,
-            modifier = Modifier.size(size * 0.65f)
+            contentDescription = if (isGold) "Gold VIP Verified" else "Blue Verified",
+            tint = iconTint,
+            modifier = Modifier.size(size * 0.68f)
         )
     }
 }

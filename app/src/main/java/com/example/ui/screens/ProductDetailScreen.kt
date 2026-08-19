@@ -282,8 +282,10 @@ fun ProductDetailScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    if (item.sellerIsVerified) {
-                                        VerifiedMark(badge = VerificationBadge.GOLD, size = 14.dp)
+                                    if (item.verificationBadge != VerificationBadge.NONE) {
+                                        VerifiedMark(badge = item.verificationBadge, size = 14.dp)
+                                    } else if (item.sellerIsVerified) {
+                                        VerifiedMark(badge = VerificationBadge.BLUE, size = 14.dp)
                                     }
                                 }
 

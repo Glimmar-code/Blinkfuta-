@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,7 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.models.LeaderboardUser
+import com.example.data.models.VerificationBadge
 import com.example.ui.components.FacultyBadge
+import com.example.ui.components.VerifiedMark
 import com.example.ui.theme.*
 
 @Composable
@@ -144,6 +147,7 @@ fun LeaderboardScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .animateContentSize()
                     .clickable { onProfileClick(user.username) }
             ) {
                 Row(
@@ -182,6 +186,9 @@ fun LeaderboardScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                            if (user.verificationBadge != VerificationBadge.NONE) {
+                                VerifiedMark(badge = user.verificationBadge, size = 13.dp)
+                            }
                             FacultyBadge(tag = user.faculty)
                         }
 
@@ -272,13 +279,21 @@ private fun PodiumUserCard(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        Text(
-            text = user.fullName.split(" ").firstOrNull() ?: user.username,
-            fontSize = 12.5.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = user.fullName.split(" ").firstOrNull() ?: user.username,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            if (user.verificationBadge != VerificationBadge.NONE) {
+                VerifiedMark(badge = user.verificationBadge, size = 12.dp)
+            }
+        }
 
         Text(
             text = "${user.points} pts",

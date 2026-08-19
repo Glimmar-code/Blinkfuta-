@@ -40,6 +40,7 @@ import com.example.data.models.FeedPost
 import com.example.data.models.UserProfile
 import com.example.data.models.VerificationBadge
 import com.example.ui.components.FacultyBadge
+import com.example.ui.components.FollowerGrowthChart
 import com.example.ui.components.PostCard
 import com.example.ui.components.VerifiedMark
 import com.example.ui.theme.*
@@ -52,6 +53,7 @@ fun ProfileScreen(
     userPosts: List<FeedPost>,
     likedPosts: List<FeedPost>,
     savedPosts: List<FeedPost>,
+    userMarketItems: List<com.example.data.models.MarketItem>,
     onBack: () -> Unit,
     onEditProfileClick: () -> Unit,
     onDirectMessage: (String) -> Unit,
@@ -62,6 +64,7 @@ fun ProfileScreen(
     onSharePost: (String) -> Unit,
     onOptionsClick: (FeedPost) -> Unit,
     onProfileClick: (String) -> Unit,
+    onMarketItemClick: (com.example.data.models.MarketItem) -> Unit,
     onOpenGetVerified: () -> Unit = {},
     isDark: Boolean
 ) {
@@ -70,9 +73,9 @@ fun ProfileScreen(
 
     val tabs = remember(isMe) {
         if (isMe) {
-            listOf("Posts", "Liked", "Saved", "Skills & Badges", "About")
+            listOf("Posts", "Growth (30D)", "Liked", "Saved", "Market", "Skills & Badges", "About")
         } else {
-            listOf("Posts", "Liked", "Skills & Badges", "About")
+            listOf("Posts", "Growth (30D)", "Liked", "Market", "Skills & Badges", "About")
         }
     }
 
@@ -386,7 +389,12 @@ fun ProfileScreen(
                             ) {
                                 ProfileStatItem(count = "${userPosts.size}", label = "Posts", isDark = isDark)
                                 Box(modifier = Modifier.height(28.dp).width(1.dp).background(borderColor))
-                                ProfileStatItem(count = "${profile.followerCount + if (isFollowing) 1 else 0}", label = "Followers", isDark = isDark)
+                                ProfileStatItem(
+                                    count = "${profile.followerCount + if (isFollowing) 1 else 0}",
+                                    label = "Followers",
+                                    isDark = isDark,
+                                    modifier = Modifier.clickable { selectedTab = 1 }
+                                )
                                 Box(modifier = Modifier.height(28.dp).width(1.dp).background(borderColor))
                                 ProfileStatItem(count = "${profile.followingCount}", label = "Following", isDark = isDark)
                             }
@@ -474,8 +482,21 @@ fun ProfileScreen(
                     }
                 }
 
-                // TAB: LIKED
+                // TAB 1: FOLLOWER GROWTH (30-DAY PROGRESS & GOLD VIP TRACKER)
                 1 -> {
+                    item {
+                        FollowerGrowthChart(
+                            profile = profile,
+                            isDark = isDark,
+                            onOpenGetVerified = onOpenGetVerified,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
+                // TAB 2: LIKED
+                2 -> {
                     if (likedPosts.isEmpty()) {
                         item {
                             Box(
@@ -517,8 +538,8 @@ fun ProfileScreen(
                     }
                 }
 
-                // TAB: SAVED (if isMe) or SKILLS & BADGES (if !isMe)
-                2 -> {
+                // TAB 3: SAVED (if isMe) or MARKET (if !isMe)
+                3 -> {
                     if (isMe) {
                         // Personal Saved Posts
                         if (savedPosts.isEmpty()) {
@@ -561,7 +582,104 @@ fun ProfileScreen(
                             }
                         }
                     } else {
-                        // Skills & Badges for other users
+                        // Market listings for other users
+                        if (userMarketItems.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "No market items 🛒",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            items(userMarketItems.chunked(2)) { rowItems ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                ) {
+                                    rowItems.forEach { item ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            com.example.ui.screens.ProductCard(
+                                                item = item,
+                                                onClick = { onMarketItemClick(item) },
+                                                isDark = isDark
+                                            )
+                                        }
+                                    }
+                                    if (rowItems.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // TAB 4: MARKET (for isMe) or SKILLS & BADGES (for !isMe)
+                4 -> {
+                    if (isMe) {
+                        // Market listings for me
+                        if (userMarketItems.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "No market items 🛒",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textPrimary
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Items you list for sale will appear here.",
+                                            fontSize = 12.5.sp,
+                                            color = textSecondary,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            items(userMarketItems.chunked(2)) { rowItems ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                ) {
+                                    rowItems.forEach { item ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            com.example.ui.screens.ProductCard(
+                                                item = item,
+                                                onClick = { onMarketItemClick(item) },
+                                                isDark = isDark
+                                            )
+                                        }
+                                    }
+                                    if (rowItems.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                    } else {
                         item {
                             SkillsAndBadgesSection(
                                 profile = profile,
@@ -577,8 +695,8 @@ fun ProfileScreen(
                     }
                 }
 
-                // TAB 3: SKILLS & BADGES (for isMe) or ABOUT (for !isMe)
-                3 -> {
+                // TAB 5: SKILLS & BADGES (for isMe) or ABOUT (for !isMe)
+                5 -> {
                     if (isMe) {
                         item {
                             SkillsAndBadgesSection(
@@ -604,8 +722,8 @@ fun ProfileScreen(
                     }
                 }
 
-                // TAB 4: ABOUT (for isMe)
-                4 -> {
+                // TAB 6: ABOUT (for isMe)
+                6 -> {
                     item {
                         AboutSection(
                             profile = profile,
@@ -933,8 +1051,16 @@ private fun AboutSection(
 }
 
 @Composable
-private fun ProfileStatItem(count: String, label: String, isDark: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun ProfileStatItem(
+    count: String,
+    label: String,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+    ) {
         Text(
             text = count,
             fontSize = 18.sp,

@@ -418,10 +418,30 @@ class SupabaseService {
                                     timestamp = formatTimeAgo(time),
                                     isFromMe = isMe
                                 )
+                                // Attach badge object transiently to use it later
+                                obj.put("_parsedBadge", extractBadge(obj).name)
                                 convosMap.getOrPut(partner) { mutableListOf() }.add(msg)
                             }
 
                             val conversations = convosMap.map { (partner, msgs) ->
+                                // Try to find badge from any associated message raw obj that had it
+                                val badgeName = jsonArray.let { arr ->
+                                    var found = "NONE"
+                                    for (i in 0 until arr.length()) {
+                                        val o = arr.optJSONObject(i)
+                                        if (o != null) {
+                                            val s = o.optString("sender_username", o.optString("sender_id", "user"))
+                                            val r = o.optString("receiver_username", "you")
+                                            if ((s == partner || r == partner) && o.has("_parsedBadge")) {
+                                                found = o.optString("_parsedBadge")
+                                                if (found != "NONE") break
+                                            }
+                                        }
+                                    }
+                                    found
+                                }
+                                val badge = VerificationBadge.valueOf(badgeName)
+
                                 ChatConversation(
                                     id = "conv_$partner",
                                     partnerUsername = partner,
@@ -431,7 +451,8 @@ class SupabaseService {
                                     lastMessage = msgs.firstOrNull()?.text ?: "",
                                     lastMessageTime = msgs.firstOrNull()?.timestamp ?: "Just now",
                                     unreadCount = 0,
-                                    isVerified = true,
+                                    isVerified = badge != VerificationBadge.NONE,
+                                    verificationBadge = badge,
                                     messages = msgs
                                 )
                             }
@@ -530,12 +551,15 @@ class SupabaseService {
             } catch (_: Exception) {}
         }
 
+        val badge = extractBadge(obj)
+
         return FeedPost(
             id = id,
             author = author,
             authorAvatar = avatar,
             facultyTag = faculty,
-            isVerified = true,
+            isVerified = badge != VerificationBadge.NONE,
+            verificationBadge = badge,
             timeAgo = formatTimeAgo(createdAt),
             text = text,
             images = if (imageUrl.isNotBlank()) listOf(imageUrl) else emptyList(),
@@ -575,6 +599,42 @@ class SupabaseService {
         }
     }
 
+    private fun extractBadge(obj: JSONObject): VerificationBadge {
+        val followerCount = obj.optInt("follower_count", 0)
+        val profileViews = obj.optInt("profile_views", 0)
+        
+        val verifiedAtStr = obj.optString("verified_at", "")
+        var verifiedAtMillis = 0L
+        if (verifiedAtStr.isNotBlank()) {
+            try {
+                val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+                format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                verifiedAtMillis = format.parse(verifiedAtStr)?.time ?: 0L
+            } catch (e: Exception) {
+            }
+        }
+        
+        if (verifiedAtMillis == 0L && followerCount >= 800) {
+            verifiedAtMillis = System.currentTimeMillis() - java.util.concurrent.TimeUnit.DAYS.toMillis(1)
+        }
+        
+        val thirtyDaysMillis = 30L * 24 * 60 * 60 * 1000
+        val isExpired = System.currentTimeMillis() - verifiedAtMillis > thirtyDaysMillis
+        
+        if (isExpired && followerCount < 800) {
+            return VerificationBadge.NONE
+        } else {
+            val dbBadge = obj.optString("verification_badge", "").uppercase()
+            if (dbBadge == "GOLD" || (followerCount >= 1000 && profileViews >= 2000)) {
+                return VerificationBadge.GOLD
+            } else if (dbBadge == "BLUE" || followerCount >= 800) {
+                return VerificationBadge.BLUE
+            } else {
+                return VerificationBadge.NONE
+            }
+        }
+    }
+
     private fun parseUserProfile(obj: JSONObject): UserProfile? {
         val id = obj.optString("id", "user_me")
         val fullName = obj.optString("full_name", obj.optString("name", obj.optString("display_name", "Gbolahan Olowosile"))).ifBlank { "Gbolahan Olowosile" }
@@ -596,6 +656,13 @@ class SupabaseService {
             "Student Innovator • Product Lead"
         }
 
+        val followerCount = obj.optInt("follower_count", 2450)
+        val followingCount = obj.optInt("following_count", 380)
+        val profileViews = obj.optInt("profile_views", 312)
+        
+        val badge = extractBadge(obj)
+        val verifiedAtMillis = if (badge != VerificationBadge.NONE) System.currentTimeMillis() else 0L
+
         return UserProfile(
             id = id,
             fullName = fullName,
@@ -608,9 +675,11 @@ class SupabaseService {
             academicLevel = academicLevel,
             bio = bio,
             professionalHeadline = headline,
-            followerCount = obj.optInt("follower_count", 2450),
-            followingCount = obj.optInt("following_count", 380),
-            profileViewsThisWeek = obj.optInt("profile_views", 312),
+            verificationBadge = badge,
+            verifiedAtMillis = verifiedAtMillis,
+            followerCount = followerCount,
+            followingCount = followingCount,
+            profileViewsThisWeek = profileViews,
             onlineNow = true
         )
     }
@@ -632,7 +701,8 @@ class SupabaseService {
             faculty = obj.optString("faculty", "SIMME").ifBlank { "SIMME" },
             university = obj.optString("university", "University of Lagos"),
             level = obj.optString("level", "400 Level"),
-            streakDays = obj.optInt("streak_days", 14)
+            streakDays = obj.optInt("streak_days", 14),
+            verificationBadge = extractBadge(obj)
         )
     }
 
@@ -645,6 +715,8 @@ class SupabaseService {
         val sellerUsername = obj.optString("seller_username", "aluta_merchant").ifBlank { "aluta_merchant" }
         val sellerName = obj.optString("seller_name", "Verified Student Seller").ifBlank { "Verified Student Seller" }
 
+        val badge = extractBadge(obj)
+
         return MarketItem(
             id = obj.optString("id", System.currentTimeMillis().toString()),
             title = title,
@@ -655,7 +727,8 @@ class SupabaseService {
             sellerName = sellerName,
             sellerPhone = obj.optString("seller_phone", "+234 812 345 6789"),
             sellerWhatsapp = obj.optString("seller_whatsapp", "+2348123456789"),
-            sellerIsVerified = true,
+            sellerIsVerified = badge != VerificationBadge.NONE,
+            verificationBadge = badge,
             sellerRating = 4.9,
             sellerReviewCount = 28,
             university = obj.optString("university", "University of Lagos"),

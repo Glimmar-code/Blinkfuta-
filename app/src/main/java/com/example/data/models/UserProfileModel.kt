@@ -83,6 +83,7 @@ data class UserProfile(
     var followingCount: Int = 380,
     var profileViewsThisWeek: Int = 312,
     var onlineNow: Boolean = true,
+    var verifiedAtMillis: Long = 0L,
     var joinedLabel: String = "Joined Blink in October 2024",
     var isSellerActive: Boolean = true,
     var sellerStoreName: String = "Efe Tech Hub & Gadgets",

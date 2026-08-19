@@ -236,7 +236,9 @@ fun MessagesScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                if (convo.isVerified) {
+                                if (convo.verificationBadge != VerificationBadge.NONE) {
+                                    VerifiedMark(badge = convo.verificationBadge, size = 13.dp)
+                                } else if (convo.isVerified) {
                                     VerifiedMark(badge = VerificationBadge.BLUE, size = 13.dp)
                                 }
                             }
@@ -322,7 +324,9 @@ fun ChatConversationView(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(convo.partnerName, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                if (convo.isVerified) {
+                                if (convo.verificationBadge != VerificationBadge.NONE) {
+                                    VerifiedMark(badge = convo.verificationBadge, size = 13.dp)
+                                } else if (convo.isVerified) {
                                     VerifiedMark(badge = VerificationBadge.BLUE, size = 13.dp)
                                 }
                             }

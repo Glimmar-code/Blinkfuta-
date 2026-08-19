@@ -438,6 +438,54 @@ fun GetVerifiedSheet(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
+                        var showFollowerGrowthChart by remember { mutableStateOf(false) }
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BlinkGold.copy(alpha = 0.08f),
+                            border = BorderStroke(1.dp, BlinkGold.copy(alpha = 0.25f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showFollowerGrowthChart = !showFollowerGrowthChart }
+                                .testTag("toggle_follower_growth_chart")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Default.TrendingUp, contentDescription = null, tint = BlinkGold, modifier = Modifier.size(18.dp))
+                                    Text(
+                                        text = if (showFollowerGrowthChart) "Hide 30-Day Growth Trends" else "View 30-Day Follower Growth Trends",
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textPrimary
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (showFollowerGrowthChart) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = BlinkGold,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        if (showFollowerGrowthChart) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            FollowerGrowthChart(
+                                profile = profile,
+                                isDark = isDark,
+                                onOpenGetVerified = { /* in sheet */ },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
                         // Gold features checklist
                         VerificationFeatureItem(
                             icon = Icons.Default.Star,

@@ -104,7 +104,10 @@ fun AppMenuSheet(
                     Spacer(modifier = Modifier.width(14.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             Text(
                                 text = profile.fullName,
                                 fontWeight = FontWeight.Bold,
@@ -112,13 +115,7 @@ fun AppMenuSheet(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             if (profile.verificationBadge != VerificationBadge.NONE) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Verified",
-                                    tint = BlinkPink,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                VerifiedMark(badge = profile.verificationBadge, size = 16.dp)
                             }
                         }
                         Text(

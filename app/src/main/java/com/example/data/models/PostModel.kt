@@ -27,6 +27,7 @@ data class FeedPost(
     val authorAvatar: String,
     val facultyTag: String = "SIMME",
     val isVerified: Boolean = true,
+    val verificationBadge: VerificationBadge = VerificationBadge.BLUE,
     val timeAgo: String,
     val text: String,
     val images: List<String> = emptyList(),
@@ -50,7 +51,8 @@ data class Story(
     val avatar: String,
     val hasUnseen: Boolean = true,
     val isUser: Boolean = false,
-    val storyImage: String = ""
+    val storyImage: String = "",
+    val verificationBadge: VerificationBadge = VerificationBadge.NONE
 )
 
 data class ActivityItem(
@@ -63,7 +65,8 @@ data class ActivityItem(
     val category: NotificationFilter = NotificationFilter.ALL,
     val targetPostId: String? = null,
     val targetMarketId: String? = null,
-    val previewText: String? = null
+    val previewText: String? = null,
+    val verificationBadge: VerificationBadge = VerificationBadge.NONE
 )
 
 data class MarketItem(
@@ -77,6 +80,7 @@ data class MarketItem(
     val sellerPhone: String = "+234 812 345 6789",
     val sellerWhatsapp: String = "+2348123456789",
     val sellerIsVerified: Boolean = true,
+    val verificationBadge: VerificationBadge = VerificationBadge.BLUE,
     val sellerRating: Double = 4.8,
     val sellerReviewCount: Int = 34,
     val university: String = "University of Lagos",
@@ -85,7 +89,8 @@ data class MarketItem(
     val condition: String = "Like New",
     val description: String,
     val postedTime: String = "2 hours ago",
-    val isFeatured: Boolean = false
+    val isFeatured: Boolean = false,
+    val isSold: Boolean = false
 )
 
 data class LeaderboardUser(
@@ -97,7 +102,8 @@ data class LeaderboardUser(
     val faculty: String,
     val university: String,
     val level: String,
-    val streakDays: Int = 12
+    val streakDays: Int = 12,
+    val verificationBadge: VerificationBadge = VerificationBadge.NONE
 )
 
 data class CommentReply(
@@ -107,7 +113,8 @@ data class CommentReply(
     val text: String,
     val time: String = "Just now",
     var likes: Int = 0,
-    var isLiked: Boolean = false
+    var isLiked: Boolean = false,
+    val verificationBadge: VerificationBadge = VerificationBadge.NONE
 )
 
 data class Comment(
@@ -118,7 +125,8 @@ data class Comment(
     val time: String,
     var likes: Int,
     var isLiked: Boolean = false,
-    val replies: List<CommentReply> = emptyList()
+    val replies: List<CommentReply> = emptyList(),
+    val verificationBadge: VerificationBadge = VerificationBadge.NONE
 )
 
 data class ChatMessage(
@@ -143,6 +151,7 @@ data class ChatConversation(
     val lastMessageTime: String,
     val unreadCount: Int = 0,
     val isVerified: Boolean = false,
+    val verificationBadge: VerificationBadge = VerificationBadge.NONE,
     val faculty: String = "SIMME",
     val lastSeen: String = "Last seen recently",
     val messages: MutableList<ChatMessage> = mutableListOf()

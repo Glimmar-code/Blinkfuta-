@@ -244,6 +244,7 @@ fun ActivitySheet(
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.clickable { onProfileClick(activity.user) }
                                         )
+                                        VerifiedMark(badge = activity.verificationBadge, size = 12.dp)
                                         Text(
                                             text = activity.action,
                                             fontSize = 12.5.sp,
