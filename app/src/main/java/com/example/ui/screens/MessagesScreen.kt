@@ -322,7 +322,7 @@ fun ChatConversationView(
                                 }
                             }
                             Text(
-                                text = if (convo.isOnline) "Active Now" else "Offline",
+                                text = if (convo.isOnline) "Active Now" else "Last seen ${convo.lastSeen}",
                                 fontSize = 11.sp,
                                 color = if (convo.isOnline) BlinkOnlineGreen else MaterialTheme.colorScheme.onSurfaceVariant
                             )

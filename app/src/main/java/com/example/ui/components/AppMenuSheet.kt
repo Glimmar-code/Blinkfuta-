@@ -45,7 +45,8 @@ fun AppMenuSheet(
     onOpenActivity: () -> Unit,
     onToggleTheme: () -> Unit,
     onLogout: () -> Unit,
-    onShowToast: (String) -> Unit
+    onShowToast: (String) -> Unit,
+    onSimulateNotification: () -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -304,6 +305,16 @@ fun AppMenuSheet(
                     onClick = {
                         onDismiss()
                         onShowToast("Account switch triggered")
+                    }
+                )
+                MenuItemRow(
+                    icon = Icons.Outlined.NotificationsActive,
+                    title = "Test Real-Life Notification",
+                    subtitle = "Simulate a push notification when offline",
+                    iconColor = BlinkPink,
+                    onClick = {
+                        onDismiss()
+                        onSimulateNotification()
                     }
                 )
                 MenuItemRow(

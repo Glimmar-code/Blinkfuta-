@@ -184,7 +184,8 @@ fun MainAppContent(
                         onOpenCreatePost = { viewModel.openCreatePost(true) },
                         onOpenActivity = { viewModel.openActivity(true) },
                         onOpenMenu = { viewModel.openMenu(true) },
-                        onToggleTheme = { viewModel.toggleDarkMode() }
+                        onToggleTheme = { viewModel.toggleDarkMode() },
+                        onViewedPost = { viewModel.recordPostView(it) }
                     )
                 }
 
@@ -278,12 +279,17 @@ fun MainAppContent(
             uiState.viewingProfile?.let { profile ->
                 val isMyProfile = profile.username == uiState.myProfile.username || profile.username == "you"
                 val profilePosts = if (isMyProfile) {
-                    uiState.posts.filter { it.author == uiState.myProfile.username || it.author == "efe.design" }
+                    uiState.posts.filter { 
+                        it.author.equals(uiState.myProfile.username, ignoreCase = true) || 
+                        it.author.equals(uiState.myProfile.fullName, ignoreCase = true) || 
+                        it.author.equals("efe.design", ignoreCase = true) ||
+                        it.author.equals("golowosile", ignoreCase = true)
+                    }
                 } else {
-                    uiState.posts.filter { it.author == profile.username }
+                    uiState.posts.filter { it.author.equals(profile.username, ignoreCase = true) || it.author.equals(profile.fullName, ignoreCase = true) }
                 }
-                val profileLikedPosts = uiState.posts.filter { it.isLiked }
-                val profileSavedPosts = uiState.posts.filter { it.isBookmarked }
+                val profileLikedPosts = (uiState.posts + uiState.reels).filter { it.isLiked }
+                val profileSavedPosts = (uiState.posts + uiState.reels).filter { it.isBookmarked }
 
                 ProfileScreen(
                     profile = profile,
@@ -419,6 +425,7 @@ fun MainAppContent(
 
         // Modals: 3-Dot App Menu Sheet
         if (uiState.isMenuOpen) {
+            val context = androidx.compose.ui.platform.LocalContext.current
             AppMenuSheet(
                 profile = uiState.myProfile,
                 isDark = uiState.isDarkMode,
@@ -432,7 +439,8 @@ fun MainAppContent(
                 onOpenActivity = { viewModel.openActivity(true) },
                 onToggleTheme = { viewModel.toggleDarkMode() },
                 onLogout = { viewModel.logout() },
-                onShowToast = { viewModel.showToast(it) }
+                onShowToast = { viewModel.showToast(it) },
+                onSimulateNotification = { viewModel.simulateBackgroundNotification(context) }
             )
         }
     }

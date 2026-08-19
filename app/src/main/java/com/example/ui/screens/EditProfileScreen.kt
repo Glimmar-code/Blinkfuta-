@@ -1,20 +1,33 @@
 package com.example.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.models.ContactField
 import com.example.data.models.UserProfile
+import com.example.ui.components.CropAdjustDialog
 import com.example.ui.theme.BlinkPink
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +40,8 @@ fun EditProfileScreen(
 ) {
     var fullName by remember { mutableStateOf(profile.fullName) }
     var username by remember { mutableStateOf(profile.username) }
+    var avatarUrl by remember { mutableStateOf(profile.avatarUrl) }
+    var coverPhotoUrl by remember { mutableStateOf(profile.coverPhotoUrl) }
     var headline by remember { mutableStateOf(profile.professionalHeadline) }
     var jobTitle by remember { mutableStateOf(profile.currentJobTitle) }
     var bio by remember { mutableStateOf(profile.bio) }
@@ -37,6 +52,43 @@ fun EditProfileScreen(
     var graduationYear by remember { mutableStateOf(profile.graduationYear) }
     var email by remember { mutableStateOf(profile.email.value) }
     var phone by remember { mutableStateOf(profile.phone.value) }
+
+    var pendingCropUri by remember { mutableStateOf<Uri?>(null) }
+    var isCropAvatar by remember { mutableStateOf(true) }
+
+    val avatarPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            pendingCropUri = it
+            isCropAvatar = true
+        }
+    }
+
+    val coverPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            pendingCropUri = it
+            isCropAvatar = false
+        }
+    }
+
+    if (pendingCropUri != null) {
+        CropAdjustDialog(
+            imageUri = pendingCropUri!!,
+            isCircle = isCropAvatar,
+            onDismiss = { pendingCropUri = null },
+            onCropComplete = { croppedUri ->
+                if (isCropAvatar) {
+                    avatarUrl = croppedUri.toString()
+                } else {
+                    coverPhotoUrl = croppedUri.toString()
+                }
+                pendingCropUri = null
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -53,6 +105,8 @@ fun EditProfileScreen(
                             val updated = profile.copy(
                                 fullName = fullName,
                                 username = username,
+                                avatarUrl = avatarUrl,
+                                coverPhotoUrl = coverPhotoUrl,
                                 professionalHeadline = headline,
                                 currentJobTitle = jobTitle,
                                 bio = bio,
@@ -82,6 +136,93 @@ fun EditProfileScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
+                Text("Profile Photos (Upload JPEG / PNG)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+
+            // Cover Photo Upload Section
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Cover Photo", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { coverPicker.launch("image/*") }
+                    ) {
+                        if (coverPhotoUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = coverPhotoUrl,
+                                contentDescription = "Cover photo preview",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.3f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = Color.White)
+                                Text("Upload Cover (JPEG/PNG)", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Avatar Upload Section
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Avatar / Profile Picture", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { avatarPicker.launch("image/*") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (avatarUrl.isNotEmpty()) {
+                                AsyncImage(
+                                    model = avatarUrl,
+                                    contentDescription = "Avatar preview",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White)
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = { avatarPicker.launch("image/*") },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Upload Avatar (JPEG / PNG)")
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
                 Text("Personal Information", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
 
@@ -222,6 +363,8 @@ fun EditProfileScreen(
                         val updated = profile.copy(
                             fullName = fullName,
                             username = username,
+                            avatarUrl = avatarUrl,
+                            coverPhotoUrl = coverPhotoUrl,
                             professionalHeadline = headline,
                             currentJobTitle = jobTitle,
                             bio = bio,

@@ -279,6 +279,7 @@ object BlinkDemoData {
             unreadCount = 0,
             isVerified = true,
             faculty = "ENGINEERING",
+            lastSeen = "2 hours ago",
             messages = mutableListOf(
                 ChatMessage("m_10", "kemi_eng", "Sent the circuit diagram files on drive", "Yesterday", false)
             )

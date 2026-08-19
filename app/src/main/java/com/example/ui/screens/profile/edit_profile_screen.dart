@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:blink/config/theme.dart';
-import 'package:blink/features/profile/user_profile_model.dart';
-import 'package:blink/features/profile/nigerian_universities.dart'; // kNigerianUniversities — generated from the xlsx list
 import 'package:blink/services/profile_service.dart';
+
+import 'user_profile_model.dart';
+import 'nigerian_universities.dart'; // kNigerianUniversities — generated from the xlsx list
 
 class EditProfileScreen extends StatefulWidget {
   final UserProfile profile; // pass a `.clone()` in so cancel doesn't mutate the caller's copy

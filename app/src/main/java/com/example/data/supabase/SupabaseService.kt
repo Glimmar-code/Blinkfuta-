@@ -70,50 +70,7 @@ class SupabaseService {
                 }
             }
 
-            // 2. Check if user profile exists in Supabase profiles/users table
-            val queryEndpoints = listOf(
-                "/rest/v1/profiles?or=(email.eq.$cleanInput,username.eq.$cleanInput)&limit=1",
-                "/rest/v1/users?or=(email.eq.$cleanInput,username.eq.$cleanInput)&limit=1"
-            )
-
-            for (endpoint in queryEndpoints) {
-                try {
-                    val req = newRequestBuilder(endpoint).get().build()
-                    client.newCall(req).execute().use { resp ->
-                        if (resp.isSuccessful) {
-                            val body = resp.body?.string().orEmpty()
-                            if (body.isNotBlank() && body != "[]" && body != "null") {
-                                val jsonArr = JSONArray(body)
-                                if (jsonArr.length() > 0) {
-                                    val obj = jsonArr.getJSONObject(0)
-                                    val profile = parseUserProfile(obj)
-                                    if (profile != null) {
-                                        return@withContext Result.success(profile)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
-
-            // If account is the default admin/demo user allow with valid password
-            if (cleanInput == "golowosile@gmail.com" || cleanInput == "golowosile" || cleanInput == "efe.design" || cleanInput == "efe.chukwu@student.unilag.edu.ng") {
-                if (password.length >= 6) {
-                    val defaultUser = UserProfile(
-                        id = "user_me",
-                        fullName = if (cleanInput.contains("golowosile")) "Gbolahan Olowosile" else "Efe Chukwu",
-                        username = if (cleanInput.contains("golowosile")) "golowosile" else "efe.design",
-                        email = ContactField(if (cleanInput.contains("@")) cleanInput else "$cleanInput@gmail.com", true),
-                        faculty = "SIMME"
-                    )
-                    return@withContext Result.success(defaultUser)
-                } else {
-                    return@withContext Result.failure(Exception("Incorrect password. Please enter at least 6 characters."))
-                }
-            }
-
-            // User unavailable on Supabase
+            // User unavailable on Supabase or incorrect password
             return@withContext Result.failure(Exception("User unavailable or incorrect password. Please sign up or check your credentials."))
         } catch (e: Exception) {
             Log.e("SupabaseService", "Auth error: ${e.message}")
@@ -447,6 +404,29 @@ class SupabaseService {
         )
     }
 
+    suspend fun updateProfile(profile: UserProfile): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("full_name", profile.fullName)
+                put("username", profile.username)
+                put("avatar_url", profile.avatarUrl)
+                put("cover_url", profile.coverPhotoUrl)
+                put("bio", profile.bio)
+                put("faculty", profile.faculty)
+                put("university", profile.university)
+            }
+            val request = newRequestBuilder("/rest/v1/profiles?username=eq.${profile.username}")
+                .patch(json.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).execute().use { response ->
+                return@withContext response.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("SupabaseService", "updateProfile error: ${e.message}")
+            false
+        }
+    }
+
     private fun parseUserProfile(obj: JSONObject): UserProfile? {
         val id = obj.optString("id", "user_me")
         val fullName = obj.optString("full_name", obj.optString("name", obj.optString("display_name", "Gbolahan Olowosile"))).ifBlank { "Gbolahan Olowosile" }
@@ -537,6 +517,27 @@ class SupabaseService {
             description = obj.optString("description", "Quality campus gear for students."),
             postedTime = formatTimeAgo(obj.optString("created_at", ""))
         )
+    }
+
+    suspend fun recordPostView(postId: String, viewerUsername: String): Int = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("p_post_id", postId)
+                put("p_viewer_username", viewerUsername)
+            }
+            val request = newRequestBuilder("/rest/v1/rpc/record_post_view")
+                .post(json.toString().toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string().orEmpty()
+                    return@withContext body.toIntOrNull() ?: 1
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SupabaseService", "recordPostView error: ${e.message}")
+        }
+        1
     }
 
     private fun formatTimeAgo(dateStr: String): String {

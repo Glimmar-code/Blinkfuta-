@@ -3,15 +3,16 @@ import 'package:blink/config/theme.dart';
 import 'package:blink/post_model.dart';
 import 'package:blink/widgets/faculty_badge.dart';
 import 'package:blink/widgets/post_card.dart' show fmtNum;
-import 'package:blink/features/profile/user_profile_model.dart';
 import 'package:blink/services/profile_service.dart';
 import 'package:blink/services/follow_service.dart';
 import 'package:blink/services/post_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:blink/features/profile/profile_widgets.dart';
-import 'package:blink/features/profile/edit_profile_screen.dart';
-import 'package:blink/features/profile/guest_profile_screen.dart';
+
+import 'user_profile_model.dart';
+import 'profile_widgets.dart';
+import 'edit_profile_screen.dart';
+import 'guest_profile_screen.dart';
 
 class MyProfileScreen extends StatefulWidget {
   final UserProfile profile;

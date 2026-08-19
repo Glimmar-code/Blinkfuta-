@@ -126,5 +126,6 @@ data class ChatConversation(
     val unreadCount: Int = 0,
     val isVerified: Boolean = false,
     val faculty: String = "SIMME",
+    val lastSeen: String = "Last seen recently",
     val messages: MutableList<ChatMessage> = mutableListOf()
 )

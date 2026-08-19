@@ -3,10 +3,11 @@ import 'package:blink/config/theme.dart';
 import 'package:blink/post_model.dart';
 import 'package:blink/widgets/faculty_badge.dart';
 import 'package:blink/widgets/post_card.dart' show fmtNum;
-import 'package:blink/features/profile/user_profile_model.dart';
 import 'package:blink/services/profile_service.dart';
 import 'package:blink/services/follow_service.dart';
-import 'package:blink/features/profile/profile_widgets.dart';
+
+import 'user_profile_model.dart';
+import 'profile_widgets.dart';
 
 class GuestProfileScreen extends StatefulWidget {
   final UserProfile profile;

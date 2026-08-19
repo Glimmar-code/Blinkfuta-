@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:blink/config/theme.dart';
-import 'package:blink/features/profile/user_profile_model.dart';
+import '../profile/user_profile_model.dart';
 import 'market_categories.dart';
 import 'paystack_service.dart';
 import 'seller_service.dart';

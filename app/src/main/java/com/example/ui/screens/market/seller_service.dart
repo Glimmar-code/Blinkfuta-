@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:blink/services/auth_service.dart';
-import 'package:blink/features/profile/user_profile_model.dart';
+import '../profile/user_profile_model.dart';
 import 'package:blink/post_model.dart';
 
 /// Status of a seller's registration row.

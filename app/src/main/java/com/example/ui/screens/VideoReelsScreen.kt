@@ -1,8 +1,10 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -17,9 +19,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +35,7 @@ import com.example.data.models.FeedPost
 import com.example.ui.components.formatNumber
 import com.example.ui.theme.BlinkPink
 import com.example.ui.theme.BlinkPurple
+import kotlinx.coroutines.delay
 
 @Composable
 fun VideoReelsScreen(
@@ -46,6 +52,9 @@ fun VideoReelsScreen(
     var selectedFilter by remember { mutableStateOf("Trending") }
     val filters = listOf("Trending", "Campus Life", "Fashion & Style", "Tech Demos", "Aluta Vibes")
 
+    // State for the double tap heart animation
+    var showHeartAnimation by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -58,7 +67,19 @@ fun VideoReelsScreen(
         ) { page ->
             val reel = reels[page]
 
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            if (!reel.isLiked) {
+                                onLike(reel.id)
+                            }
+                            showHeartAnimation = true
+                        }
+                    )
+                }
+            ) {
                 // Background video image
                 AsyncImage(
                     model = reel.images.firstOrNull() ?: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&fit=crop",
@@ -225,6 +246,44 @@ fun VideoReelsScreen(
                             text = "Original Sound • ${reel.author} • AfroVibes Lagos 2026",
                             fontSize = 11.sp,
                             color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                // Heart animation overlay
+                if (showHeartAnimation) {
+                    val scale by animateFloatAsState(
+                        targetValue = if (showHeartAnimation) 1.5f else 0f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "heart_scale"
+                    )
+                    val alpha by animateFloatAsState(
+                        targetValue = if (showHeartAnimation) 0f else 1f,
+                        animationSpec = tween(durationMillis = 1000, delayMillis = 500),
+                        label = "heart_alpha"
+                    )
+
+                    LaunchedEffect(showHeartAnimation) {
+                        if (showHeartAnimation) {
+                            delay(1200)
+                            showHeartAnimation = false
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Favorite,
+                            contentDescription = "Liked",
+                            tint = BlinkPink.copy(alpha = alpha),
+                            modifier = Modifier
+                                .size(100.dp)
+                                .scale(scale)
                         )
                     }
                 }

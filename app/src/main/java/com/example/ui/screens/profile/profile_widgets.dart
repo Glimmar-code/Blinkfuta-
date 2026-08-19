@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:blink/config/theme.dart';
 import 'package:blink/post_model.dart' show unsplash;
 import 'package:blink/widgets/post_card.dart' show fmtNum;
-import 'package:blink/features/profile/user_profile_model.dart';
+
+import 'user_profile_model.dart';
 
 /// Blue / gold / no verification checkmark.
 class VerifiedMark extends StatelessWidget {

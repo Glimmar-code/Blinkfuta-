@@ -50,7 +50,8 @@ fun FeedScreen(
     onOpenCreatePost: () -> Unit,
     onOpenActivity: () -> Unit,
     onOpenMenu: () -> Unit,
-    onToggleTheme: () -> Unit
+    onToggleTheme: () -> Unit,
+    onViewedPost: (String) -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -204,7 +205,8 @@ fun FeedScreen(
                         onBookmark = { onBookmarkPost(post.id) },
                         onShare = { onSharePost(post.id) },
                         onOptionsClick = { onOptionsClick(post) },
-                        onProfileClick = onProfileClick
+                        onProfileClick = onProfileClick,
+                        onViewed = { onViewedPost(post.id) }
                     )
                 }
             }

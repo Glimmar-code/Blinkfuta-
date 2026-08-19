@@ -42,8 +42,13 @@ fun PostCard(
     onShare: () -> Unit,
     onOptionsClick: () -> Unit,
     onProfileClick: (String) -> Unit,
+    onViewed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(post.id) {
+        onViewed()
+    }
+
     val cardBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
 
     Card(

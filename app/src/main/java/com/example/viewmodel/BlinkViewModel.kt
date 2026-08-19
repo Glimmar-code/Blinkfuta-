@@ -1,6 +1,8 @@
 package com.example.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.BlinkDemoData
 import com.example.data.models.*
@@ -55,7 +57,9 @@ data class BlinkUiState(
     val isLiveSupabaseConnected: Boolean = true
 )
 
-class BlinkViewModel : ViewModel() {
+class BlinkViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val prefs = application.getSharedPreferences("blink_user_session", Context.MODE_PRIVATE)
 
     private val supabaseService = SupabaseService()
 
@@ -66,7 +70,45 @@ class BlinkViewModel : ViewModel() {
     val snackBarMessages: SharedFlow<String> = _snackBarMessages.asSharedFlow()
 
     init {
+        val isLoggedIn = prefs.getBoolean("is_logged_in", false)
+        if (isLoggedIn) {
+            val savedEmail = prefs.getString("email", "golowosile@gmail.com") ?: "golowosile@gmail.com"
+            val savedName = prefs.getString("full_name", "Gbolahan Olowosile") ?: "Gbolahan Olowosile"
+            val savedUsername = prefs.getString("username", "golowosile") ?: "golowosile"
+            val savedFaculty = prefs.getString("faculty", "SIMME") ?: "SIMME"
+            val savedUni = prefs.getString("university", "University of Lagos") ?: "University of Lagos"
+            val savedAvatar = prefs.getString("avatar_url", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop") ?: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop"
+            val savedCover = prefs.getString("cover_url", "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&h=400&fit=crop") ?: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&h=400&fit=crop"
+
+            val restoredProfile = UserProfile(
+                email = ContactField(savedEmail, true),
+                fullName = savedName,
+                username = savedUsername,
+                faculty = savedFaculty,
+                university = savedUni,
+                avatarUrl = savedAvatar,
+                coverPhotoUrl = savedCover
+            )
+            _uiState.value = _uiState.value.copy(
+                myProfile = restoredProfile,
+                destination = AppDestination.MAIN
+            )
+        }
         fetchSupabaseData()
+    }
+
+    private fun saveSession(profile: UserProfile) {
+        prefs.edit().apply {
+            putBoolean("is_logged_in", true)
+            putString("email", profile.email.value)
+            putString("full_name", profile.fullName)
+            putString("username", profile.username)
+            putString("faculty", profile.faculty)
+            putString("university", profile.university)
+            putString("avatar_url", profile.avatarUrl)
+            putString("cover_url", profile.coverPhotoUrl)
+            apply()
+        }
     }
 
     fun fetchSupabaseData() {
@@ -111,6 +153,7 @@ class BlinkViewModel : ViewModel() {
                     myProfile = profile,
                     destination = AppDestination.MAIN
                 )
+                saveSession(profile)
                 fetchSupabaseData()
                 showToast("✨ Signed in as @${profile.username}")
                 onResult(true, null)
@@ -156,6 +199,7 @@ class BlinkViewModel : ViewModel() {
             myProfile = updatedProfile,
             destination = AppDestination.MAIN
         )
+        saveSession(updatedProfile)
         fetchSupabaseData()
         showToast("✨ Signed in with Google as @${updatedProfile.username}")
     }
@@ -175,6 +219,8 @@ class BlinkViewModel : ViewModel() {
             myProfile = newProfile,
             destination = AppDestination.PROFILE_SETUP
         )
+        // Also save initial session for sign up so user persists if app closes during onboarding
+        saveSession(newProfile)
         showToast("Welcome to Blink! Complete your campus profile.")
     }
 
@@ -202,6 +248,7 @@ class BlinkViewModel : ViewModel() {
             myProfile = completedProfile,
             destination = AppDestination.MAIN
         )
+        saveSession(completedProfile)
         showToast("🎉 Profile setup complete! Welcome to Blink.")
     }
 
@@ -356,20 +403,21 @@ class BlinkViewModel : ViewModel() {
         )
     }
 
-    fun sendMessage(partnerUsername: String, text: String) {
+    fun sendMessage(partnerUsername: String, text: String, isFromMe: Boolean = true) {
         if (text.isBlank()) return
         val currentConversations = _uiState.value.conversations.map { convo ->
             if (convo.partnerUsername == partnerUsername) {
                 val newMsg = ChatMessage(
                     id = "msg_${System.currentTimeMillis()}",
-                    senderId = "user_me",
+                    senderId = if (isFromMe) "user_me" else partnerUsername,
                     text = text,
                     timestamp = "Just now",
-                    isFromMe = true
+                    isFromMe = isFromMe
                 )
                 convo.copy(
                     lastMessage = text,
                     lastMessageTime = "Just now",
+                    unreadCount = if (isFromMe) convo.unreadCount else convo.unreadCount + 1,
                     messages = (convo.messages + newMsg).toMutableList()
                 )
             } else {
@@ -378,9 +426,11 @@ class BlinkViewModel : ViewModel() {
         }
         _uiState.value = _uiState.value.copy(conversations = currentConversations)
 
-        // Sync with Supabase in background
-        viewModelScope.launch {
-            supabaseService.sendMessage(partnerUsername, text)
+        if (isFromMe) {
+            // Sync with Supabase in background
+            viewModelScope.launch {
+                supabaseService.sendMessage(partnerUsername, text)
+            }
         }
     }
 
@@ -413,7 +463,13 @@ class BlinkViewModel : ViewModel() {
                 post.copy(isBookmarked = newBookmarked)
             } else post
         }
-        _uiState.value = _uiState.value.copy(posts = updatedPosts)
+        val updatedReels = _uiState.value.reels.map { reel ->
+            if (reel.id == postId) {
+                val newBookmarked = !reel.isBookmarked
+                reel.copy(isBookmarked = newBookmarked)
+            } else reel
+        }
+        _uiState.value = _uiState.value.copy(posts = updatedPosts, reels = updatedReels)
         showToast("Bookmark updated")
     }
 
@@ -618,7 +674,23 @@ class BlinkViewModel : ViewModel() {
             myProfile = updated,
             isEditProfileOpen = false
         )
-        showToast("Profile updated successfully")
+        saveSession(updated)
+
+        // Sync to Supabase & update feed posts / author info across app
+        viewModelScope.launch {
+            supabaseService.updateProfile(updated)
+            val currentPosts = _uiState.value.posts.map { post ->
+                if (post.author.equals(updated.fullName, ignoreCase = true) || post.author.contains(updated.username, ignoreCase = true)) {
+                    post.copy(
+                        author = updated.fullName,
+                        authorAvatar = updated.avatarUrl
+                    )
+                } else post
+            }
+            _uiState.value = _uiState.value.copy(posts = currentPosts)
+        }
+
+        showToast("Profile updated & synced successfully!")
     }
 
     fun updateMyProfile(updated: UserProfile) {
@@ -640,9 +712,43 @@ class BlinkViewModel : ViewModel() {
         showToast("Endorsement updated for $skill")
     }
 
+    fun recordPostView(postId: String) {
+        viewModelScope.launch {
+            val username = _uiState.value.myProfile.username
+            val newViews = supabaseService.recordPostView(postId, username)
+            val updatedPosts = _uiState.value.posts.map { post ->
+                if (post.id == postId) post.copy(viewsCount = maxOf(post.viewsCount, newViews)) else post
+            }
+            _uiState.value = _uiState.value.copy(posts = updatedPosts)
+        }
+    }
+
     fun showToast(msg: String) {
         viewModelScope.launch {
             _snackBarMessages.emit(msg)
+        }
+    }
+
+    fun simulateBackgroundNotification(context: android.content.Context) {
+        viewModelScope.launch {
+            showToast("You'll receive a message notification in 3 seconds. Try putting the app in the background.")
+            kotlinx.coroutines.delay(3000)
+            
+            // Simulate a message from Kemi
+            val simulatedSenderId = "kemi_eng"
+            val simulatedSenderName = "Kemi Adeleke"
+            val simulatedMsg = "Hey! Let's review those files when you're back online."
+            
+            // Update UI state with new message
+            sendMessage(simulatedSenderId, simulatedMsg, isFromMe = false)
+            
+            // Trigger actual system notification
+            com.example.notification.BlinkNotificationHelper.showChatMessageNotification(
+                context = context,
+                senderUsername = simulatedSenderId,
+                senderName = simulatedSenderName,
+                messageText = simulatedMsg
+            )
         }
     }
 }
