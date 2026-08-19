@@ -40,7 +40,7 @@ class BlinkApplication : Application(), ImageLoaderFactory {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= TRIM_MEMORY_MODERATE) {
+        if (level >= TRIM_MEMORY_BACKGROUND) {
             coil.Coil.imageLoader(this).memoryCache?.clear()
         }
     }

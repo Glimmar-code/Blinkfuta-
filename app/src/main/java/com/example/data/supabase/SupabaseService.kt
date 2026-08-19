@@ -131,20 +131,118 @@ class SupabaseService {
         emptyList()
     }
 
+    suspend fun getOrCreateGoogleProfile(email: String, displayName: String? = null, avatarUrl: String? = null): UserProfile = withContext(Dispatchers.IO) {
+        val cleanEmail = email.trim().lowercase()
+        val derivedUsername = cleanEmail.substringBefore("@").replace(".", "_").lowercase()
+        val endpoints = listOf(
+            "/rest/v1/profiles?email=eq.$cleanEmail&select=*&limit=1",
+            "/rest/v1/profiles?username=eq.$derivedUsername&select=*&limit=1",
+            "/rest/v1/users?email=eq.$cleanEmail&select=*&limit=1"
+        )
+        for (endpoint in endpoints) {
+            try {
+                val req = newRequestBuilder(endpoint).get().build()
+                client.newCall(req).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val body = resp.body?.string().orEmpty()
+                        if (body.isNotBlank() && body != "[]" && body != "null") {
+                            val arr = JSONArray(body)
+                            if (arr.length() > 0) {
+                                val obj = arr.getJSONObject(0)
+                                parseUserProfile(obj)?.let { profile ->
+                                    return@withContext profile.copy(
+                                        email = ContactField(cleanEmail, true)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SupabaseService", "getOrCreateGoogleProfile error: ${e.message}")
+            }
+        }
+
+        // If not in Supabase yet, return clean synchronized profile and upsert into Supabase profiles
+        val initialName = displayName ?: cleanEmail.substringBefore("@").replace(".", " ").capitalizeWords().ifBlank { "Campus Student" }
+        val initialAvatar = avatarUrl ?: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop"
+        val newProfile = UserProfile(
+            id = "user_${System.currentTimeMillis() % 100000}",
+            fullName = initialName,
+            username = derivedUsername,
+            email = ContactField(cleanEmail, true),
+            avatarUrl = initialAvatar,
+            verificationBadge = VerificationBadge.BLUE,
+            faculty = "SIMME",
+            department = "Systems Engineering",
+            university = "University of Lagos (UNILAG)",
+            academicLevel = "400 Level",
+            bio = "Active campus student & tech builder on Blink 🚀"
+        )
+
+        try {
+            val json = JSONObject().apply {
+                put("email", cleanEmail)
+                put("username", derivedUsername)
+                put("full_name", initialName)
+                put("avatar_url", initialAvatar)
+                put("faculty", "SIMME")
+                put("university", "University of Lagos")
+                put("verification_tier", 1)
+            }
+            val req = newRequestBuilder("/rest/v1/profiles")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .post(json.toString().toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(req).execute().close()
+        } catch (_: Exception) {}
+
+        return@withContext newProfile
+    }
+
     suspend fun createFeedPost(
         author: String,
         authorAvatar: String,
         facultyTag: String,
         text: String,
-        imageUrl: String?
+        imageUrl: String?,
+        videoUrl: String? = null,
+        tags: List<String> = emptyList(),
+        mentions: List<String> = emptyList(),
+        poll: PostPoll? = null,
+        isReel: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val json = JSONObject().apply {
-                put("type", if (!imageUrl.isNullOrBlank()) "photo" else "text")
+                put("type", if (isReel || !videoUrl.isNullOrBlank()) "reel" else if (!imageUrl.isNullOrBlank()) "photo" else "text")
                 put("faculty", facultyTag.ifBlank { "SIMME" })
                 put("text", text)
                 if (!imageUrl.isNullOrBlank()) {
                     put("image_url", imageUrl)
+                }
+                if (!videoUrl.isNullOrBlank()) {
+                    put("video_url", videoUrl)
+                }
+                if (tags.isNotEmpty()) {
+                    put("tags", JSONArray(tags))
+                }
+                if (mentions.isNotEmpty()) {
+                    put("mentions", JSONArray(mentions))
+                }
+                if (poll != null) {
+                    val pollJson = JSONObject().apply {
+                        put("question", poll.question)
+                        val optArray = JSONArray()
+                        poll.options.forEach { opt ->
+                            optArray.put(JSONObject().apply {
+                                put("id", opt.id)
+                                put("text", opt.text)
+                                put("votes", opt.votes)
+                            })
+                        }
+                        put("options", optArray)
+                    }
+                    put("poll_data", pollJson.toString())
                 }
                 put("created_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date()))
                 put("like_count", 0)
@@ -385,7 +483,52 @@ class SupabaseService {
         val likes = obj.optInt("like_count", obj.optInt("likes", 14))
         val comments = obj.optInt("comment_count", obj.optInt("comments", 2))
         val shares = obj.optInt("share_count", obj.optInt("shares", 1))
+        val viewsCount = obj.optInt("view_count", obj.optInt("views", 120))
+        val videoUrl = obj.optString("video_url", obj.optString("videoUrl", "")).ifBlank { null }
         val createdAt = obj.optString("created_at", "")
+
+        val tagsList = mutableListOf<String>()
+        val tagsArr = obj.optJSONArray("tags")
+        if (tagsArr != null) {
+            for (i in 0 until tagsArr.length()) {
+                val t = tagsArr.optString(i)
+                if (t.isNotBlank()) tagsList.add(t)
+            }
+        }
+
+        val mentionsList = mutableListOf<String>()
+        val mentionsArr = obj.optJSONArray("mentions")
+        if (mentionsArr != null) {
+            for (i in 0 until mentionsArr.length()) {
+                val m = mentionsArr.optString(i)
+                if (m.isNotBlank()) mentionsList.add(m)
+            }
+        }
+
+        var postPoll: PostPoll? = null
+        val pollDataRaw = obj.optString("poll_data", "")
+        if (pollDataRaw.isNotBlank()) {
+            try {
+                val pollObj = JSONObject(pollDataRaw)
+                val q = pollObj.optString("question", "Campus Poll")
+                val optArr = pollObj.optJSONArray("options")
+                val options = mutableListOf<PollOption>()
+                var totalVotes = 0
+                if (optArr != null) {
+                    for (i in 0 until optArr.length()) {
+                        val optO = optArr.optJSONObject(i) ?: continue
+                        val optId = optO.optString("id", "opt_$i")
+                        val optText = optO.optString("text", "Option ${i + 1}")
+                        val optVotes = optO.optInt("votes", 0)
+                        totalVotes += optVotes
+                        options.add(PollOption(optId, optText, optVotes, false))
+                    }
+                }
+                if (options.isNotEmpty()) {
+                    postPoll = PostPoll(q, options, totalVotes, false)
+                }
+            } catch (_: Exception) {}
+        }
 
         return FeedPost(
             id = id,
@@ -400,7 +543,12 @@ class SupabaseService {
             isLiked = false,
             commentsCount = comments,
             sharesCount = shares,
-            isReel = isReel
+            viewsCount = viewsCount,
+            isReel = isReel,
+            videoUrl = videoUrl,
+            tags = tagsList,
+            mentions = mentionsList,
+            poll = postPoll
         )
     }
 

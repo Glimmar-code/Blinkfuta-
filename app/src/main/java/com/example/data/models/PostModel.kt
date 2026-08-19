@@ -7,6 +7,20 @@ enum class NotificationFilter(val label: String, val icon: String) {
     MARKET("Campus & Market", "🛍️")
 }
 
+data class PollOption(
+    val id: String,
+    val text: String,
+    var votes: Int = 0,
+    var isVotedByMe: Boolean = false
+)
+
+data class PostPoll(
+    val question: String,
+    val options: List<PollOption>,
+    val totalVotes: Int = 0,
+    val hasVoted: Boolean = false
+)
+
 data class FeedPost(
     val id: String,
     val author: String,
@@ -23,7 +37,11 @@ data class FeedPost(
     var viewsCount: Int = 1450,
     var isBookmarked: Boolean = false,
     val isReel: Boolean = false,
-    val videoDuration: String = "0:30"
+    val videoDuration: String = "0:30",
+    val videoUrl: String? = null,
+    val tags: List<String> = emptyList(),
+    val mentions: List<String> = emptyList(),
+    val poll: PostPoll? = null
 )
 
 data class Story(
