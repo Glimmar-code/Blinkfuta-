@@ -28,6 +28,7 @@ import com.example.data.models.Story
 import com.example.ui.components.BlinkMark
 import com.example.ui.components.PostCard
 import com.example.ui.components.StoryBar
+import com.example.ui.components.ServerStatusIndicator
 import com.example.ui.theme.BlinkPink
 
 @Composable
@@ -51,6 +52,7 @@ fun FeedScreen(
     onOpenActivity: () -> Unit,
     onOpenMenu: () -> Unit,
     onToggleTheme: () -> Unit,
+    isServerConnected: Boolean = true,
     onViewedPost: (String) -> Unit = {},
     onVotePoll: (postId: String, optionId: String) -> Unit = { _, _ -> }
 ) {
@@ -100,7 +102,12 @@ fun FeedScreen(
                         }
 
                         // Logo in center
-                        BlinkMark(size = 34.dp, showText = true)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            BlinkMark(size = 34.dp, showText = true)
+                            ServerStatusIndicator(
+                                isConnected = isServerConnected
+                            )
+                        }
 
                         // Top right icons: Notification and Profile
                         Row(

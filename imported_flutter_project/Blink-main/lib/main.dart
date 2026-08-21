@@ -12,9 +12,14 @@ Future<void> main() async {
   await dotenv.load(fileName: ".env");
 
   // 3. Pass the environment variables to Supabase
-  final supabaseUrl = (dotenv.env['SUPABASE_URL'] ?? dotenv.env['EXPO_PUBLIC_SUPABASE_URL'])?.trim();
+  final isLocal = const bool.fromEnvironment('LOCAL_HOST', defaultValue: false);
+  final supabaseUrl = isLocal 
+      ? (dotenv.env['SUPABASE_URL_LOCAL'] ?? 'http://localhost:54321')
+      : (dotenv.env['SUPABASE_URL'] ?? dotenv.env['EXPO_PUBLIC_SUPABASE_URL'])?.trim();
+  
   final supabaseAnonKey = (dotenv.env['SUPABASE_ANON_KEY'] ?? dotenv.env['EXPO_PUBLIC_SUPABASE_ANON_KEY'])?.trim();
 
+  debugPrint('Running as localhost: $isLocal');
   debugPrint('Supabase URL loaded: $supabaseUrl');
   debugPrint('Supabase anon key loaded: ${supabaseAnonKey != null && supabaseAnonKey.isNotEmpty}');
 

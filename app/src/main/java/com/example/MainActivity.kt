@@ -192,6 +192,7 @@ fun MainAppContent(
                         onOpenActivity = { viewModel.openActivity(true) },
                         onOpenMenu = { viewModel.openMenu(true) },
                         onToggleTheme = { viewModel.toggleDarkMode() },
+                        isServerConnected = uiState.isLiveSupabaseConnected,
                         onViewedPost = { viewModel.recordPostView(it) },
                         onVotePoll = { postId, optId -> viewModel.votePoll(postId, optId) }
                     )

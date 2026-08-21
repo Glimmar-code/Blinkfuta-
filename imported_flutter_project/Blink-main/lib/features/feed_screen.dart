@@ -5,6 +5,7 @@ import '../post_model.dart';
 import '../widgets/comment_sheet.dart';
 import '../widgets/post_card.dart';
 import '../widgets/shimmer_box.dart';
+import '../widgets/server_status_indicator.dart';
 import 'package:blink/services/post_service.dart';
 
 enum FeedTab { posts, reels }
@@ -105,14 +106,20 @@ class _FeedScreenState extends State<FeedScreen> {
                   onTap: () => widget.onSnack('Menu tapped'),
                   child: Icon(Icons.more_horiz_rounded, color: txt, size: 26),
                 ),
-                const Text(
-                  'Bl!nk',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: BlinkColors.brandPink,
-                    letterSpacing: 0.2,
-                  ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Bl!nk',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: BlinkColors.brandPink,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const ServerStatusIndicator(),
+                  ],
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -315,6 +322,7 @@ class _FeedScreenState extends State<FeedScreen> {
             else
             Column(
               children: _posts
+                  .where((p) => !p.isReel)
                   .map((post) => PostCard(
                         post: post,
                         isDark: widget.isDark,
@@ -336,173 +344,196 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildReelsTab() {
-    // Mobile equivalent of the Figma wheel-triggered immersive layout:
-    // swipe up to go immersive (hide chrome), swipe down to exit.
-    return GestureDetector(
-      onVerticalDragEnd: (details) {
-        final v = details.primaryVelocity ?? 0;
-        if (v < -200 && !_immersive) setState(() => _immersive = true);
-        if (v > 200 && _immersive) setState(() => _immersive = false);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOutCubic,
-        margin: EdgeInsets.symmetric(horizontal: _immersive ? 0 : 12, vertical: _immersive ? 0 : 4),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(_immersive ? 0 : 36)),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.network(
-              'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&h=700&fit=crop&auto=format&q=85',
-              fit: BoxFit.cover,
-            ),
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x59000000), Colors.transparent, Colors.transparent, Color(0xBF000000)],
-                  stops: [0.0, 0.3, 0.5, 1.0],
-                ),
-              ),
-            ),
+    final reels = _posts.where((p) => p.isReel).toList();
+    if (reels.isEmpty) {
+      return const Center(
+        child: Text(
+          'No reels found.\nUpload a reel to see it here!',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white54, fontSize: 14),
+        ),
+      );
+    }
 
-            // Friends / For You toggle
-            Positioned(
-              top: 16,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _immersive ? 0 : 1,
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: const Color(0x73000000),
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: const Color(0x1FFFFFFF)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: ['Friends', 'For You'].map((o) {
-                        final selected = _reelMode == o;
-                        return GestureDetector(
-                          onTap: () => setState(() => _reelMode = o),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: selected ? const Color(0x2EFFFFFF) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: Text(
-                              o,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                                color: selected ? Colors.white : const Color(0x8CFFFFFF),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+    return PageView.builder(
+      scrollDirection: Axis.vertical,
+      itemCount: reels.length,
+      itemBuilder: (context, index) {
+        final reel = reels[index];
+        return GestureDetector(
+          onVerticalDragEnd: (details) {
+            final v = details.primaryVelocity ?? 0;
+            if (v < -200 && !_immersive) setState(() => _immersive = true);
+            if (v > 200 && _immersive) setState(() => _immersive = false);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOutCubic,
+            margin: EdgeInsets.symmetric(horizontal: _immersive ? 0 : 12, vertical: _immersive ? 0 : 4),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(_immersive ? 0 : 36)),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (reel.image != null)
+                  Image.network(
+                    _resolveImageUrl(reel.image!),
+                    fit: BoxFit.cover,
+                  )
+                else
+                  Container(color: Colors.black),
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x59000000), Colors.transparent, Colors.transparent, Color(0xBF000000)],
+                      stops: [0.0, 0.3, 0.5, 1.0],
                     ),
                   ),
                 ),
-              ),
-            ),
 
-            // Right engagement sidebar
-            Positioned(
-              right: 12,
-              bottom: 24,
-              child: Column(
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const CircleAvatar(
-                        radius: 22,
-                        backgroundImage: NetworkImage('https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=80&h=80&fit=crop'),
-                      ),
-                      Positioned(
-                        bottom: -6,
-                        left: 13,
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          alignment: Alignment.center,
-                          decoration: const BoxDecoration(color: BlinkColors.accent, shape: BoxShape.circle),
-                          child: const Text('+', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                // Friends / For You toggle
+                Positioned(
+                  top: 16,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _immersive ? 0 : 1,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: const Color(0x73000000),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(color: const Color(0x1FFFFFFF)),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: ['Friends', 'For You'].map((o) {
+                            final selected = _reelMode == o;
+                            return GestureDetector(
+                              onTap: () => setState(() => _reelMode = o),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: selected ? const Color(0x2EFFFFFF) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Text(
+                                  o,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                                    color: selected ? Colors.white : const Color(0x8CFFFFFF),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Right engagement sidebar
+                Positioned(
+                  right: 12,
+                  bottom: 24,
+                  child: Column(
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundImage: NetworkImage(_resolveImageUrl(reel.avatar)),
+                          ),
+                          Positioned(
+                            bottom: -6,
+                            left: 13,
+                            child: Container(
+                              width: 18,
+                              height: 18,
+                              alignment: Alignment.center,
+                              decoration: const BoxDecoration(color: BlinkColors.accent, shape: BoxShape.circle),
+                              child: const Text('+', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _ReelAction(
+                        icon: reel.liked ? Icons.favorite : Icons.favorite_border,
+                        color: reel.liked ? BlinkColors.accent : Colors.white,
+                        label: fmtNum(reel.likes),
+                        onTap: () {
+                          setState(() {
+                            reel.liked = !reel.liked;
+                            reel.likes += reel.liked ? 1 : -1;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      _ReelAction(
+                        icon: Icons.chat_bubble_outline,
+                        color: Colors.white,
+                        label: fmtNum(reel.comments),
+                        onTap: () => showCommentSheet(context, isDark: widget.isDark, onProfileNav: widget.onProfile, onSnack: widget.onSnack),
+                      ),
+                      const SizedBox(height: 20),
+                      _ReelAction(
+                        icon: Icons.bookmark_border,
+                        color: Colors.white,
+                        label: 'Save',
+                        onTap: () => widget.onSnack('Saved!'),
+                      ),
+                      const SizedBox(height: 20),
+                      _ReelAction(
+                        icon: Icons.send_outlined,
+                        color: Colors.white,
+                        label: fmtNum(reel.shares),
+                        onTap: () => widget.onSnack('Link copied!'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  _ReelAction(
-                    icon: _liked ? Icons.favorite : Icons.favorite_border,
-                    color: _liked ? BlinkColors.accent : Colors.white,
-                    label: _liked ? '12.0M' : '12M',
-                    onTap: () {
-                      setState(() => _liked = !_liked);
-                      widget.onSnack(_liked ? '❤️ Liked!' : 'Removed like');
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  _ReelAction(
-                    icon: Icons.chat_bubble_outline,
-                    color: Colors.white,
-                    label: '561',
-                    onTap: () => showCommentSheet(context, isDark: widget.isDark, onProfileNav: widget.onProfile, onSnack: widget.onSnack),
-                  ),
-                  const SizedBox(height: 20),
-                  _ReelAction(
-                    icon: _saved ? Icons.bookmark : Icons.bookmark_border,
-                    color: _saved ? BlinkColors.purple : Colors.white,
-                    label: '16K',
-                    onTap: () => setState(() => _saved = !_saved),
-                  ),
-                  const SizedBox(height: 20),
-                  _ReelAction(
-                    icon: Icons.send_outlined,
-                    color: Colors.white,
-                    label: '24K',
-                    onTap: () => widget.onSnack('Link copied!'),
-                  ),
-                ],
-              ),
-            ),
-
-            // Creator info
-            Positioned(
-              left: 14,
-              right: 76,
-              bottom: 24,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('@zara.editorial', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-                  SizedBox(height: 4),
-                  Text(
-                    'Autumn collection drops tonight ✦ #fashion @luna',
-                    style: TextStyle(fontSize: 12, color: Color(0xBFFFFFFF), height: 1.4),
-                  ),
-                ],
-              ),
-            ),
-
-            if (!_immersive)
-              const Center(
-                child: Text(
-                  'swipe up ↑ for immersive',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0x33FFFFFF), fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
                 ),
-              ),
-          ],
-        ),
-      ),
+
+                // Creator info
+                Positioned(
+                  left: 14,
+                  right: 76,
+                  bottom: 24,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('@${reel.user}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Text(
+                        reel.caption ?? reel.text ?? '',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Color(0xBFFFFFFF), height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (!_immersive)
+                  const Center(
+                    child: Text(
+                      'swipe up ↑ for immersive',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0x33FFFFFF), fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -96,6 +96,21 @@ class BlinkViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         fetchSupabaseData()
+        startServerStatusMonitoring()
+    }
+
+    private fun startServerStatusMonitoring() {
+        viewModelScope.launch {
+            while (true) {
+                try {
+                    val isConnected = supabaseService.checkServerStatus()
+                    _uiState.value = _uiState.value.copy(isLiveSupabaseConnected = isConnected)
+                } catch (e: Exception) {
+                    _uiState.value = _uiState.value.copy(isLiveSupabaseConnected = false)
+                }
+                kotlinx.coroutines.delay(10000) // Poll every 10 seconds
+            }
+        }
     }
 
     private fun saveSession(profile: UserProfile) {

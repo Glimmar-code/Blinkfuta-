@@ -42,6 +42,8 @@ const stories = <Story>[
 
 enum PostType { text, photo }
 
+enum VerificationBadge { none, blue, gold }
+
 class FeedPost {
   final String id;
   final PostType type;
@@ -59,6 +61,8 @@ class FeedPost {
   final int shares;
   final int views;
   bool liked;
+  final bool isReel;
+  final VerificationBadge verificationBadge;
 
   FeedPost({
     required this.id,
@@ -77,6 +81,40 @@ class FeedPost {
     required this.shares,
     this.views = 0,
     this.liked = false,
+    this.isReel = false,
+    this.verificationBadge = VerificationBadge.none,
+  });
+}
+
+class Post {
+  final String id;
+  final String name;
+  final String handle;
+  final String avatarInitial;
+  final String time;
+  final String text;
+  final PostType type;
+  final String? imageUrl;
+  int likes;
+  int shares;
+  bool isLiked;
+  bool isBookmarked;
+  final List<Comment> comments;
+
+  Post({
+    required this.id,
+    required this.name,
+    required this.handle,
+    required this.avatarInitial,
+    required this.time,
+    required this.text,
+    required this.type,
+    this.imageUrl,
+    this.likes = 0,
+    this.shares = 0,
+    this.isLiked = false,
+    this.isBookmarked = false,
+    this.comments = const [],
   });
 }
 

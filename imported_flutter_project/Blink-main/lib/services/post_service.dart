@@ -9,9 +9,9 @@ class PostService {
 
   /// Fetch latest feed posts from Supabase. Queries the `feed_posts` table
   /// joined with `profiles` to get the author's username and avatar.
-  static Future<List<FeedPost>> fetchFeed() async {
+  static Future<List<FeedPost>> fetchFeed({bool? isReel}) async {
     try {
-      final resp = await _client
+      var query = _client
           .from('feed_posts')
           .select('''
             id,
@@ -25,14 +25,19 @@ class PostService {
             comment_count,
             share_count,
             view_count,
+            is_reel,
             created_at,
             profiles!user_id!inner (
               username,
               avatar_url
             )
-          ''')
-          .order('created_at', ascending: false)
-          .limit(50) as List<dynamic>;
+          ''');
+
+      if (isReel != null) {
+        query = query.eq('is_reel', isReel);
+      }
+
+      final resp = await query.order('created_at', ascending: false).limit(50) as List<dynamic>;
       return resp.map((r) => _mapFeedRow(r as Map<String, dynamic>)).toList();
     } catch (e, st) {
       debugPrint('PostService.fetchFeed error: $e');
@@ -42,9 +47,9 @@ class PostService {
   }
 
   /// Fetch posts authored by a specific username from Supabase.
-  static Future<List<FeedPost>> fetchPostsByUser(String username) async {
+  static Future<List<FeedPost>> fetchPostsByUser(String username, {bool? isReel}) async {
     try {
-      final resp = await _client
+      var query = _client
           .from('feed_posts')
           .select('''
             id,
@@ -58,15 +63,20 @@ class PostService {
             comment_count,
             share_count,
             view_count,
+            is_reel,
             created_at,
             profiles!user_id!inner (
               username,
               avatar_url
             )
           ''')
-          .eq('profiles.username', username)
-          .order('created_at', ascending: false)
-          .limit(50) as List<dynamic>;
+          .eq('profiles.username', username);
+
+      if (isReel != null) {
+        query = query.eq('is_reel', isReel);
+      }
+
+      final resp = await query.order('created_at', ascending: false).limit(50) as List<dynamic>;
       return resp.map((r) => _mapFeedRow(r as Map<String, dynamic>)).toList();
     } catch (e, st) {
       debugPrint('PostService.fetchPostsByUser error: $e');
@@ -140,7 +150,18 @@ class PostService {
       views: (r['view_count'] is int)
           ? r['view_count'] as int
           : (r['view_count'] is num ? (r['view_count'] as num).toInt() : 0),
+      isReel: (r['is_reel'] as bool?) ?? false,
+      verificationBadge: _parseBadge(r['verification_badge'] as String?),
     );
+  }
+
+  static VerificationBadge _parseBadge(String? badge) {
+    if (badge == null) return VerificationBadge.none;
+    switch (badge.toLowerCase()) {
+      case 'blue': return VerificationBadge.blue;
+      case 'gold': return VerificationBadge.gold;
+      default: return VerificationBadge.none;
+    }
   }
 
   static String _formatTime(dynamic createdAt) {
@@ -164,6 +185,7 @@ class PostService {
     required String authorAvatar,
     required String text,
     List<String>? images,
+    bool isReel = false,
   }) async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -174,6 +196,7 @@ class PostService {
         'type': (images != null && images.isNotEmpty) ? 'photo' : 'text',
         'text': text,
         'image_url': (images != null && images.isNotEmpty) ? images.first : null,
+        'is_reel': isReel,
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
       final resp = await _client.from('feed_posts').insert(row).select();
@@ -190,6 +213,7 @@ class PostService {
         commentCount: (r['comment_count'] is int) ? r['comment_count'] as int : 0,
         repostCount: (r['share_count'] is int) ? r['share_count'] as int : 0,
         viewCount: (r['view_count'] is int) ? r['view_count'] as int : 0,
+        isReel: (r['is_reel'] as bool?) ?? isReel,
         authorUsername: authorUsername,
         authorFullName: authorFullName,
         authorAvatar: authorAvatar,
@@ -256,6 +280,7 @@ class PostService {
       commentCount: (r['comment_count'] is int) ? r['comment_count'] as int : 0,
       repostCount: (r['share_count'] is int) ? r['share_count'] as int : 0,
       viewCount: (r['view_count'] is int) ? r['view_count'] as int : 0,
+      isReel: (r['is_reel'] as bool?) ?? false,
       authorUsername: (r['username'] as String?) ?? '',
       authorFullName: (r['author_full_name'] as String?) ?? '',
       authorAvatar: (r['author_avatar'] as String?) ?? '',

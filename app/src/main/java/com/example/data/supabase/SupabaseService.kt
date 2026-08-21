@@ -100,6 +100,17 @@ class SupabaseService {
         }
     }
 
+    suspend fun checkServerStatus(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val request = newRequestBuilder("/rest/v1/").get().build()
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     suspend fun fetchFeedPosts(): List<FeedPost> = withContext(Dispatchers.IO) {
         val endpoints = listOf(
             "/rest/v1/feed_posts?select=*&order=created_at.desc&limit=50",

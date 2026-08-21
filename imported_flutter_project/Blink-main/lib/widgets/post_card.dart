@@ -3,6 +3,7 @@ import '../../config/theme.dart';
 import '../../post_model.dart';
 import 'faculty_badge.dart';
 import 'rich_text_highlight.dart';
+import 'verified_mark.dart';
 
 String _resolveImageUrl(String url) => url.startsWith('http') ? url : unsplash(url);
 
@@ -130,6 +131,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             onTap: () => widget.onProfile(p.user),
                             child: Text(p.user, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: txt)),
                           ),
+                          const SizedBox(width: 4),
+                          VerifiedMark(badge: p.verificationBadge, size: 14),
                           if (p.faculty != null && p.faculty!.isNotEmpty) ...[
                             const SizedBox(width: 6),
                             FacultyBadge(tag: p.faculty!),

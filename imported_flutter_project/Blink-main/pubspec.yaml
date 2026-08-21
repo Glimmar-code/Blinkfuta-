@@ -13,6 +13,7 @@ dependencies:
 
   # Backend / auth
   supabase_flutter: ^2.8.0
+  shorebird_code_push: ^1.1.0
 
   # UI
   google_fonts: ^6.2.1
