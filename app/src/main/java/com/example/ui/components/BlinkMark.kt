@@ -85,12 +85,28 @@ fun BlinkMark(
         }
 
         if (showText) {
+            val glowIntensity by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "GlowIntensity"
+            )
+
             Text(
-                text = "BLINK",
-                fontSize = 20.sp,
+                text = "Bl!nk",
+                fontSize = 26.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp,
-                color = MaterialTheme.colorScheme.onBackground
+                letterSpacing = 0.5.sp,
+                color = BlinkPink,
+                style = androidx.compose.ui.text.TextStyle(
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = BlinkPink.copy(alpha = 0.4f + 0.4f * glowIntensity),
+                        blurRadius = 12f + 12f * glowIntensity
+                    )
+                )
             )
         }
     }

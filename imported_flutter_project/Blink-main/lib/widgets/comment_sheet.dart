@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../post_model.dart';
+import '../../services/comment_service.dart';
 import 'post_card.dart' show fmtNum;
 import 'rich_text_highlight.dart';
 
 /// Call this to open the comment sheet, matching Figma's `commentOpen` modal.
 Future<void> showCommentSheet(
   BuildContext context, {
+  required String postId,
   required bool isDark,
   required ValueChanged<String> onProfileNav,
   required ValueChanged<String> onSnack,
@@ -15,24 +17,42 @@ Future<void> showCommentSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _CommentSheetContent(isDark: isDark, onProfileNav: onProfileNav, onSnack: onSnack),
+    builder: (_) => _CommentSheetContent(postId: postId, isDark: isDark, onProfileNav: onProfileNav, onSnack: onSnack),
   );
 }
 
 class _CommentSheetContent extends StatefulWidget {
+  final String postId;
   final bool isDark;
   final ValueChanged<String> onProfileNav;
   final ValueChanged<String> onSnack;
 
-  const _CommentSheetContent({required this.isDark, required this.onProfileNav, required this.onSnack});
+  const _CommentSheetContent({required this.postId, required this.isDark, required this.onProfileNav, required this.onSnack});
 
   @override
   State<_CommentSheetContent> createState() => _CommentSheetContentState();
 }
 
 class _CommentSheetContentState extends State<_CommentSheetContent> {
-  late final List<Comment> _comments = mockComments();
+  List<Comment> _comments = [];
+  bool _loading = true;
   final _input = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  Future<void> _loadComments() async {
+    final fetched = await CommentService.fetchComments(widget.postId);
+    if (mounted) {
+      setState(() {
+        _comments = fetched;
+        _loading = false;
+      });
+    }
+  }
   final _expanded = <int>{};
 
   @override
@@ -41,7 +61,7 @@ class _CommentSheetContentState extends State<_CommentSheetContent> {
     super.dispose();
   }
 
-  void _send() {
+  void _send() async {
     final text = _input.text.trim();
     if (text.isEmpty) return;
     setState(() {
@@ -58,6 +78,7 @@ class _CommentSheetContentState extends State<_CommentSheetContent> {
       );
       _input.clear();
     });
+    await CommentService.postComment(widget.postId, text);
   }
 
   @override
@@ -108,11 +129,21 @@ class _CommentSheetContentState extends State<_CommentSheetContent> {
                     final id = _comments[i].id;
                     _expanded.contains(id) ? _expanded.remove(id) : _expanded.add(id);
                   }),
-                  onLike: () => setState(() {
+                  onLike: () async {
                     final c = _comments[i];
-                    c.liked = !c.liked;
-                    c.likes += c.liked ? 1 : -1;
-                  }),
+                    final currentLiked = c.liked;
+                    setState(() {
+                      c.liked = !currentLiked;
+                      c.likes += c.liked ? 1 : -1;
+                    });
+                    final success = await CommentService.toggleLike(c.id, c.liked);
+                    if (!success && mounted) {
+                      setState(() {
+                        c.liked = currentLiked;
+                        c.likes += c.liked ? 1 : -1;
+                      });
+                    }
+                  },
                   onProfile: () {
                     Navigator.of(context).pop();
                     widget.onProfileNav(_comments[i].user);
@@ -173,6 +204,7 @@ class _CommentSheetContentState extends State<_CommentSheetContent> {
 
 class _CommentTile extends StatelessWidget {
   final Comment comment;
+  final String postId;
   final bool isDark;
   final bool expanded;
   final VoidCallback onToggleReplies;

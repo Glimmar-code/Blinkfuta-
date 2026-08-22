@@ -142,7 +142,7 @@ class _VideoTileState extends State<_VideoTile> {
                 icon: PhosphorIconsRegular.chatCircle,
                 label: '${post.comments.length}',
                 color: Colors.white,
-                onTap: () => showCommentSheet(context, post).then((_) {
+                onTap: () => showCommentSheet(context, postId: 'test', isDark: true, onProfileNav: (_) {}, onSnack: (_) {}).then((_) {
                   if (mounted) setState(() {});
                 }),
               ),

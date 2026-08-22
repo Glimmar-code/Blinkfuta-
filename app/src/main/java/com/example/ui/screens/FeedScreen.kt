@@ -56,6 +56,9 @@ fun FeedScreen(
     onViewedPost: (String) -> Unit = {},
     onVotePoll: (postId: String, optionId: String) -> Unit = { _, _ -> }
 ) {
+    var isSearchExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -81,81 +84,134 @@ fun FeedScreen(
             ) {
                 // Top Header Bar
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 48.dp, bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 3-Dot menu button on top left
-                        IconButton(
-                            onClick = onOpenMenu,
-                            modifier = Modifier.testTag("menu_3dots_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MoreHoriz,
-                                contentDescription = "App Menu",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-
-                        // Logo in center
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            BlinkMark(size = 34.dp, showText = true)
-                            ServerStatusIndicator(
-                                isConnected = isServerConnected
-                            )
-                        }
-
-                        // Top right icons: Notification and Profile
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            // Activity / Bell Icon (opens half sheet)
-                            IconButton(
-                                onClick = onOpenActivity,
-                                modifier = Modifier.testTag("activity_button")
+                    AnimatedContent(
+                        targetState = isSearchExpanded,
+                        label = "SearchExpansionAnimation"
+                    ) { expanded ->
+                        if (expanded) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 16.dp, top = 48.dp, bottom = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                BadgedBox(
-                                    badge = {
-                                        Badge(
-                                            containerColor = BlinkPink,
-                                            modifier = Modifier.size(8.dp)
-                                        )
-                                    }
-                                ) {
+                                IconButton(onClick = { isSearchExpanded = false; searchQuery = "" }) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Notifications,
-                                        contentDescription = "Notifications",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(24.dp)
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = "Close Search",
+                                        tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
+                                OutlinedTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                                    placeholder = { Text("Search users, posts, markets...") },
+                                    shape = RoundedCornerShape(24.dp),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = BlinkPink,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                    ),
+                                    trailingIcon = {
+                                        if (searchQuery.isNotEmpty()) {
+                                            IconButton(onClick = { searchQuery = "" }) {
+                                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                            }
+                                        }
+                                    }
+                                )
                             }
-
-                            // Profile avatar icon on the top right
-                            Box(
+                        } else {
+                            Row(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .clickable { onProfileClick("you") }
-                                    .testTag("top_profile_button")
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 16.dp, top = 48.dp, bottom = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                AsyncImage(
-                                    model = userAvatar,
-                                    contentDescription = "My Profile",
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .background(Color(0xFF22C55E), CircleShape)
-                                        .align(Alignment.BottomEnd)
-                                )
+                                // 3-Dot menu button on top left
+                                IconButton(
+                                    onClick = onOpenMenu,
+                                    modifier = Modifier.testTag("menu_3dots_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreHoriz,
+                                        contentDescription = "App Menu",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+
+                                // Logo in center
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    BlinkMark(size = 34.dp, showText = true)
+                                    ServerStatusIndicator(
+                                        isConnected = isServerConnected
+                                    )
+                                }
+
+                                // Top right icons: Notification and Profile
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // Search Icon
+                                    IconButton(
+                                        onClick = { isSearchExpanded = true }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = "Search",
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    // Activity / Bell Icon (opens half sheet)
+                                    IconButton(
+                                        onClick = onOpenActivity,
+                                        modifier = Modifier.testTag("activity_button")
+                                    ) {
+                                        BadgedBox(
+                                            badge = {
+                                                Badge(
+                                                    containerColor = BlinkPink,
+                                                    modifier = Modifier.size(8.dp)
+                                                )
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Notifications,
+                                                contentDescription = "Notifications",
+                                                tint = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Profile avatar icon on the top right
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .clickable { onProfileClick("you") }
+                                            .testTag("top_profile_button")
+                                    ) {
+                                        AsyncImage(
+                                            model = userAvatar,
+                                            contentDescription = "My Profile",
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .background(Color(0xFF22C55E), CircleShape)
+                                                .align(Alignment.BottomEnd)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

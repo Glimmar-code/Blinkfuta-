@@ -1,288 +1,462 @@
 import 'package:flutter/material.dart';
-import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:blink/config/theme.dart';
+import 'package:blink/post_model.dart';
+import 'package:blink/widgets/faculty_badge.dart';
+import 'package:blink/widgets/post_card.dart' show fmtNum;
 import 'package:blink/features/profile/user_profile_model.dart';
+import 'package:blink/services/profile_service.dart';
+import 'package:blink/services/follow_service.dart';
+import 'package:blink/features/profile/profile_widgets.dart';
 
 class GuestProfileScreen extends StatefulWidget {
   final UserProfile profile;
   final bool isDark;
-  final Function(String) onSnack;
+  final ValueChanged<String> onSnack;
 
-  const GuestProfileScreen({
-    super.key,
-    required this.profile,
-    required this.isDark,
-    required this.onSnack,
-  });
+  const GuestProfileScreen({super.key, required this.profile, required this.isDark, required this.onSnack});
 
   @override
   State<GuestProfileScreen> createState() => _GuestProfileScreenState();
 }
 
 class _GuestProfileScreenState extends State<GuestProfileScreen> {
-  int _activeTabIndex = 0; // 0: Posts, 1: Reels
+  late ConnectStatus _connectionState = widget.profile.connectionState;
+  late bool _following = false;
+  bool _loading = true;
+
+  Color get _accent => Color(widget.profile.accentColorValue);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final p = await ProfileService.fetchByUsername(widget.profile.username);
+      final followersPreview = await FollowService.fetchFollowersPreview(p.username);
+      final followingPreview = await FollowService.fetchFollowingPreview(p.username);
+      final followerCount = await FollowService.fetchFollowerCount(p.username);
+      final followingCount = await FollowService.fetchFollowingCount(p.username);
+      
+      final listings = marketItems.where((i) => i.seller == p.username).toList();
+      
+      if (!mounted) return;
+      setState(() {
+        widget.profile.fullName = p.fullName;
+        widget.profile.avatar = p.avatar;
+        widget.profile.coverPhoto = p.coverPhoto;
+        widget.profile.bio = p.bio;
+        widget.profile.followerCount = followerCount;
+        widget.profile.followingCount = followingCount;
+        widget.profile.followersPreview = followersPreview;
+        widget.profile.followingPreview = followingPreview;
+        widget.profile.posts = p.posts;
+        widget.profile.listings = listings;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _onConnectTap() {
+    setState(() {
+      _connectionState = switch (_connectionState) {
+        ConnectStatus.none => ConnectStatus.requested,
+        ConnectStatus.requested => ConnectStatus.none,
+        ConnectStatus.connected => ConnectStatus.connected,
+      };
+    });
+    final msg = switch (_connectionState) {
+      ConnectStatus.none => 'Request cancelled',
+      ConnectStatus.requested => 'Connection request sent',
+      ConnectStatus.connected => 'Already connected',
+    };
+    widget.onSnack(msg);
+  }
+
+  String get _connectLabel => switch (_connectionState) {
+        ConnectStatus.none => 'Connect',
+        ConnectStatus.requested => 'Requested',
+        ConnectStatus.connected => 'Connected',
+      };
+
+  void _openFollowList({required bool followers}) {
+    final p = widget.profile;
+    final list = followers ? p.followersPreview : p.followingPreview;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FollowListScreen(
+          title: followers ? 'Followers' : 'Following',
+          people: list,
+          isDark: widget.isDark,
+          onOpenProfile: _openPersonProfile,
+        ),
+      ),
+    );
+  }
+
+  void _openPersonProfile(FollowPreview person) {
+    final guest = UserProfile(
+      fullName: person.fullName,
+      username: person.username,
+      avatar: person.avatar,
+      coverPhoto: '',
+      verification: person.verification,
+      professionalHeadline: person.headline,
+      accentColorValue: widget.profile.accentColorValue,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GuestProfileScreen(profile: guest, isDark: widget.isDark, onSnack: widget.onSnack),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filteredPosts = _activeTabIndex == 0 
-        ? widget.profile.feedPosts 
-        : widget.profile.reelPosts;
+    final isDark = widget.isDark;
+    final p = widget.profile;
+    final txt = isDark ? BlinkColors.textDark : BlinkColors.textLight;
+    final muted = isDark ? BlinkColors.mutedDark : BlinkColors.mutedLight;
+    final bg = isDark ? BlinkColors.bgDark : BlinkColors.bgLight;
+    final accent = _accent;
+    const avatarRadius = 50.0;
+    const avatarOverlap = avatarRadius;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: bg,
       body: CustomScrollView(
         slivers: [
-          _buildAppBar(context),
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildStats(),
-                _buildActions(),
-                _buildBio(),
-                _buildTabs(),
-              ],
+          SliverAppBar(
+            backgroundColor: bg,
+            pinned: false,
+            expandedHeight: 180,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 8, top: 8),
+              child: CircleAvatar(
+                backgroundColor: Colors.black38,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
             ),
-          ),
-          if (filteredPosts.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 60),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        _activeTabIndex == 1 ? PhosphorIconsRegular.videoCamera : PhosphorIconsRegular.images,
-                        size: 48,
-                        color: Colors.white.withOpacity(0.2),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _activeTabIndex == 1 ? 'No reels yet' : 'No posts yet',
-                        style: TextStyle(color: Colors.white.withOpacity(0.5)),
-                      ),
-                    ],
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8, top: 8),
+                child: CircleAvatar(
+                  backgroundColor: Colors.black38,
+                  child: IconButton(
+                    icon: const Icon(Icons.share_outlined, color: Colors.white, size: 18),
+                    onPressed: () => widget.onSnack('Share profile'),
                   ),
                 ),
               ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.all(1),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 1,
-                  mainAxisSpacing: 1,
-                  childAspectRatio: 1,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final post = filteredPosts[index];
-                    return GestureDetector(
-                      onTap: () => widget.onSnack('View post ${post.id}'),
-                      child: Container(
-                        color: Colors.white.withOpacity(0.05),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            if (post.images.isNotEmpty)
-                              Image.network(
-                                post.images.first,
-                                fit: BoxFit.cover,
-                              )
-                            else
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [BlinkColors.brandPink.withOpacity(0.3), BlinkColors.purple.withOpacity(0.3)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    post.text,
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ),
-                            if (post.isReel)
-                              const Positioned(
-                                top: 8,
-                                right: 8,
-                                child: Icon(PhosphorIconsFill.videoCamera, color: Colors.white, size: 16),
-                              ),
-                          ],
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: p.coverPhoto.isNotEmpty
+                    ? Image.network(p.coverUrl, key: ValueKey(p.coverPhoto), fit: BoxFit.cover)
+                    : DecoratedBox(
+                        key: const ValueKey('cover_gradient'),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [const Color(0xFF1A0033), const Color(0xFF4A0080), accent],
+                          ),
                         ),
                       ),
-                    );
-                  },
-                  childCount: filteredPosts.length,
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            sliver: SliverToBoxAdapter(
+              child: Transform.translate(
+                offset: const Offset(0, -avatarOverlap),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Avatar + action buttons
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ProfileAvatar(
+                          heroTag: 'avatar_${p.username}',
+                          avatarUrl: p.avatarUrl,
+                          radius: avatarRadius,
+                          ringColor: accent,
+                          backgroundColor: bg,
+                        ),
+                        Row(
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => widget.onSnack('Message ${p.fullName}'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: txt,
+                                side: BorderSide(color: isDark ? BlinkColors.borderDark : BlinkColors.borderLight),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                              ),
+                              child: const Text('Message', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                            ),
+                            const SizedBox(width: 8),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  setState(() => _following = !_following);
+                                  widget.onSnack(_following ? 'Following!' : 'Unfollowed');
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _following ? Colors.transparent : accent,
+                                  foregroundColor: _following ? muted : Colors.white,
+                                  side: BorderSide(color: _following ? const Color(0x40FFFFFF) : accent, width: 1.5),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                                  elevation: 0,
+                                ),
+                                child: Text(_following ? 'Following' : 'Follow', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    Row(
+                      children: [
+                        Flexible(child: Text(p.fullName, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: txt))),
+                        const SizedBox(width: 6),
+                        VerifiedMark(badge: p.verification),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text('@${p.username}', style: TextStyle(fontSize: 13, color: muted, fontWeight: FontWeight.w600)),
+                        if (p.pronouns.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text('· ${p.pronouns}', style: TextStyle(fontSize: 13, color: muted)),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    PresenceLabel(online: p.onlineNow, label: p.lastSeenLabel, muted: muted),
+
+                    const SizedBox(height: 10),
+                    if (p.professionalHeadline.isNotEmpty)
+                      Text(p.professionalHeadline, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: txt)),
+
+                    const SizedBox(height: 8),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (p.faculty.isNotEmpty) FacultyBadge(tag: p.faculty),
+                        RankPill(label: 'World', rank: p.worldRank),
+                        RankPill(label: 'Campus', rank: p.campusRank),
+                        if (p.availability != AvailabilityStatus.none)
+                          TagChip(label: p.availability.label, icon: Icons.bolt, isDark: isDark),
+                      ],
+                    ),
+
+                    if (p.customStatus.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(color: accent.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                        child: Text(p.customStatus, style: TextStyle(fontSize: 12, color: txt)),
+                      ),
+                    ],
+
+                    const SizedBox(height: 14),
+                    // Connect CTA (secondary, professional-network style)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _connectionState == ConnectStatus.connected ? null : _onConnectTap,
+                        icon: Icon(
+                          _connectionState == ConnectStatus.connected ? Icons.check_circle_outline : Icons.person_add_alt_1_outlined,
+                          size: 16,
+                        ),
+                        label: Text(_connectLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _connectionState == ConnectStatus.connected ? accent : txt,
+                          side: BorderSide(color: _connectionState == ConnectStatus.connected ? accent : (isDark ? BlinkColors.borderDark : BlinkColors.borderLight)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                        ),
+                      ),
+                    ),
+
+                    if (p.mutualConnections > 0) ...[
+                      const SizedBox(height: 10),
+                      Text('${p.mutualConnections} mutual connections', style: TextStyle(fontSize: 12, color: muted)),
+                    ],
+
+                    const SizedBox(height: 18),
+                    if (p.bio.isNotEmpty) Text(p.bio, style: TextStyle(fontSize: 13, color: muted, height: 1.4)),
+
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        StatColumn(label: 'Posts', value: '${p.posts.length}', txt: txt, muted: muted),
+                        StatColumn(label: 'Followers', value: fmtNum(p.followerCount), txt: txt, muted: muted, onTap: () => _openFollowList(followers: true)),
+                        StatColumn(label: 'Following', value: fmtNum(p.followingCount), txt: txt, muted: muted, onTap: () => _openFollowList(followers: false)),
+                      ],
+                    ),
+
+                    const SizedBox(height: 22),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+                    SectionHeader(title: 'Academic', txt: txt),
+                    InfoRow(icon: Icons.school_outlined, text: p.university, muted: muted),
+                    InfoRow(icon: Icons.account_balance_outlined, text: [p.faculty, p.department].where((e) => e.isNotEmpty).join(' · '), muted: muted),
+                    InfoRow(icon: Icons.menu_book_outlined, text: p.courseOfStudy, muted: muted),
+                    InfoRow(icon: Icons.stairs_outlined, text: [p.academicLevel, p.graduationYear].where((e) => e.isNotEmpty).join(' · '), muted: muted),
+                    if (p.currentJobTitle.isNotEmpty) InfoRow(icon: Icons.work_outline, text: p.currentJobTitle, muted: muted),
+
+                    if (p.coreSkills.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      SectionHeader(title: 'Skills', txt: txt),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: p.coreSkills.map((s) {
+                          final endorsement = p.skillEndorsements.where((e) => e.skill == s);
+                          final e = endorsement.isNotEmpty ? endorsement.first : null;
+                          return InkWell(
+                            onTap: () => widget.onSnack('Endorsed $s'),
+                            borderRadius: BorderRadius.circular(100),
+                            child: TagChip(
+                              label: e != null && e.endorsements > 0 ? '$s · ${e.endorsements}' : s,
+                              icon: e?.endorsedByMe == true ? Icons.thumb_up : null,
+                              isDark: isDark,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    // Everything else lives inside "More Details".
+                    MoreDetailsSection(
+                      txt: txt,
+                      muted: muted,
+                      isDark: isDark,
+                      children: [
+                        const SizedBox(height: 4),
+                        // Contact & location — only fields the owner marked public are shown.
+                        if (p.email.isPublic || p.phone.isPublic || p.countryOfOrigin.isNotEmpty || p.currentCityState.isNotEmpty) ...[
+                          SectionHeader(title: 'Contact & Location', txt: txt),
+                          if (p.email.isPublic) InfoRow(icon: Icons.mail_outline, text: p.email.value, muted: muted),
+                          if (p.phone.isPublic) InfoRow(icon: Icons.call_outlined, text: p.phone.value, muted: muted),
+                          InfoRow(icon: Icons.flag_outlined, text: p.countryOfOrigin, muted: muted),
+                          InfoRow(icon: Icons.location_on_outlined, text: p.currentCityState, muted: muted),
+                        ],
+
+                        if (p.hobbies.isNotEmpty || p.languages.isNotEmpty || p.favoriteQuote.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          SectionHeader(title: 'About', txt: txt),
+                          if (p.favoriteQuote.isNotEmpty) ...[
+                            Text('"${p.favoriteQuote}"', style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: txt)),
+                            const SizedBox(height: 10),
+                          ],
+                          if (p.hobbies.isNotEmpty)
+                            Wrap(spacing: 8, runSpacing: 8, children: p.hobbies.map((h) => TagChip(label: h, isDark: isDark)).toList()),
+                          if (p.languages.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: p.languages.map((l) => TagChip(label: l, icon: Icons.translate, isDark: isDark)).toList(),
+                            ),
+                          ],
+                        ],
+
+                        if (p.links.website.isNotEmpty ||
+                            p.links.linkedin.isNotEmpty ||
+                            p.links.twitter.isNotEmpty ||
+                            p.links.instagram.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          SectionHeader(title: 'Links', txt: txt),
+                          Row(
+                            children: [
+                              SocialIconButton(icon: Icons.link, value: p.links.website, isDark: isDark, onTap: () => widget.onSnack('Open website')),
+                              SocialIconButton(icon: Icons.business_center_outlined, value: p.links.linkedin, isDark: isDark, onTap: () => widget.onSnack('Open LinkedIn')),
+                              SocialIconButton(icon: Icons.alternate_email, value: p.links.twitter, isDark: isDark, onTap: () => widget.onSnack('Open X/Twitter')),
+                              SocialIconButton(icon: Icons.camera_alt_outlined, value: p.links.instagram, isDark: isDark, onTap: () => widget.onSnack('Open Instagram')),
+                            ],
+                          ),
+                          if (p.links.featuredLink.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: () => widget.onSnack('Open ${p.links.featuredLink}'),
+                              icon: const Icon(Icons.star_outline, size: 16),
+                              label: Text(p.links.featuredLinkLabel.isNotEmpty ? p.links.featuredLinkLabel : p.links.featuredLink),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: txt,
+                                side: BorderSide(color: isDark ? BlinkColors.borderDark : BlinkColors.borderLight),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                              ),
+                            ),
+                          ],
+                        ],
+
+                        if (p.badges.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          SectionHeader(title: 'Badges & Achievements', txt: txt),
+                          SizedBox(
+                            height: 44,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: p.badges.map((a) => AchievementBadgeChip(achievement: a, isDark: isDark)).toList(),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Text(p.joinedLabel, style: TextStyle(fontSize: 11, color: muted)),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+                    // Posts / Reels / Likes / Saved — swipe between tabs.
+                    ProfileContentTabs(
+                      posts: p.posts,
+                      reels: p.reels,
+                      likedPosts: p.likedPosts,
+                      savedPosts: p.savedPosts,
+                      listings: p.listings,
+                      isDark: isDark,
+                      txt: txt,
+                      muted: muted,
+                      accent: accent,
+                      isOwner: false,
+                      onSnack: widget.onSnack,
+                    ),
+                  ],
                 ),
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAppBar(BuildContext context) {
-    return SliverAppBar(
-      expandedHeight: 180,
-      pinned: true,
-      backgroundColor: widget.isDark ? const Color(0xFF141018) : Colors.white,
-      leading: IconButton(
-        icon: const Icon(PhosphorIconsRegular.caretLeft, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: Image.network(
-          widget.profile.coverPhoto,
-          fit: BoxFit.cover,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Transform.translate(
-      offset: const Offset(0, -40),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 44,
-              backgroundColor: BlinkColors.brandPink,
-              child: CircleAvatar(
-                radius: 41,
-                backgroundImage: NetworkImage(widget.profile.avatarUrl),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              widget.profile.fullName,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            Text(
-              '@${widget.profile.username}',
-              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStats() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildStatItem('Followers', widget.profile.followerCount.toString()),
-        _buildDivider(),
-        _buildStatItem('Following', widget.profile.followingCount.toString()),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
-      ],
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(
-      height: 20,
-      width: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 32),
-      color: Colors.white.withOpacity(0.1),
-    );
-  }
-
-  Widget _buildActions() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () => widget.onSnack('Following @${widget.profile.username}'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: BlinkColors.brandPink,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: const Text('Follow', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: const Icon(PhosphorIconsRegular.chatCircle, color: Colors.white, size: 20),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBio() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(
-        widget.profile.bio,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, height: 1.5),
-      ),
-    );
-  }
-
-  Widget _buildTabs() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildTabItem('Posts', _activeTabIndex == 0, 0),
-          _buildTabItem('Reels', _activeTabIndex == 1, 1),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabItem(String label, bool active, int index) {
-    return GestureDetector(
-      onTap: () => setState(() => _activeTabIndex = index),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: active ? FontWeight.bold : FontWeight.normal,
-              color: active ? BlinkColors.brandPink : Colors.white.withOpacity(0.5),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 2,
-            width: 40,
-            color: active ? BlinkColors.brandPink : Colors.transparent,
           ),
         ],
       ),

@@ -28,6 +28,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import kotlinx.coroutines.delay
+import androidx.compose.animation.core.tween
 import coil.compose.AsyncImage
 import com.example.data.models.FeedPost
 import com.example.data.models.VerificationBadge
@@ -50,6 +54,15 @@ fun PostCard(
 ) {
     LaunchedEffect(post.id) {
         onViewed()
+    }
+
+    var showHeart by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showHeart) {
+        if (showHeart) {
+            delay(800)
+            showHeart = false
+        }
     }
 
     val cardBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
@@ -284,72 +297,111 @@ fun PostCard(
             // Post Images or Video Preview
             if (post.images.isNotEmpty() || post.videoUrl != null || post.isReel) {
                 Spacer(modifier = Modifier.height(12.dp))
-                if (post.videoUrl != null || post.isReel) {
-                    // Video Reel Card
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF191826)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (post.images.isNotEmpty()) {
-                            AsyncImage(
-                                model = post.images[0],
-                                contentDescription = "Video thumbnail",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().alpha(0.6f)
-                            )
+                Box(
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                showHeart = true
+                                if (!post.isLiked) {
+                                    onLike()
+                                }
+                            }
+                        )
+                    },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (post.videoUrl != null || post.isReel) {
+                        // Video Reel Card
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF191826)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (post.images.isNotEmpty()) {
+                                AsyncImage(
+                                    model = post.images[0],
+                                    contentDescription = "Video thumbnail",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().alpha(0.6f)
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayCircleFilled,
+                                    contentDescription = "Play Reel",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(52.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(100.dp),
+                                    color = Color.Black.copy(alpha = 0.6f)
+                                ) {
+                                    Text(
+                                        text = "Campus Reel • ${post.videoDuration}",
+                                        color = Color.White,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.PlayCircleFilled,
-                                contentDescription = "Play Reel",
-                                tint = Color.White,
-                                modifier = Modifier.size(52.dp)
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(100.dp),
-                                color = Color.Black.copy(alpha = 0.6f)
-                            ) {
-                                Text(
-                                    text = "Campus Reel • ${post.videoDuration}",
-                                    color = Color.White,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    } else if (post.images.size == 1) {
+                        AsyncImage(
+                            model = post.images[0],
+                            contentDescription = "Post image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                        )
+                    } else {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            post.images.take(2).forEach { img ->
+                                AsyncImage(
+                                    model = img,
+                                    contentDescription = "Post image",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(180.dp)
+                                        .clip(RoundedCornerShape(14.dp))
                                 )
                             }
                         }
                     }
-                } else if (post.images.size == 1) {
-                    AsyncImage(
-                        model = post.images[0],
-                        contentDescription = "Post image",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                    )
-                } else {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        post.images.take(2).forEach { img ->
-                            AsyncImage(
-                                model = img,
-                                contentDescription = "Post image",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(180.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                            )
-                        }
+                    
+                    if (showHeart) {
+                        val scale by animateFloatAsState(
+                            targetValue = if (showHeart) 1.5f else 0.5f,
+                            animationSpec = spring(
+                                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                                stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                            ),
+                            label = "heart_scale"
+                        )
+                        val alpha by animateFloatAsState(
+                            targetValue = if (showHeart) 1f else 0f,
+                            animationSpec = tween(durationMillis = 300),
+                            label = "heart_alpha"
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "Liked",
+                            tint = BlinkPink,
+                            modifier = Modifier
+                                .size(100.dp)
+                                .scale(scale)
+                                .alpha(alpha)
+                        )
                     }
                 }
             }

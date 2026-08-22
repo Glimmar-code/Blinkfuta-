@@ -1,3 +1,4 @@
+import "package:blink/signup_screen.dart";
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // 1. Import dotenv
@@ -9,7 +10,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 2. Load the environment variables before using them
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('Could not load .env file: $e. Falling back to environment variables.');
+  }
 
   // 3. Pass the environment variables to Supabase
   final isLocal = const bool.fromEnvironment('LOCAL_HOST', defaultValue: false);
@@ -37,12 +42,34 @@ Future<void> main() async {
   runApp(const BlinkApp());
 }
 
-class BlinkApp extends StatelessWidget {
+
+class BlinkApp extends StatefulWidget {
   const BlinkApp({super.key});
+
+  @override
+  State<BlinkApp> createState() => _BlinkAppState();
+}
+
+class _BlinkAppState extends State<BlinkApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedOut) {
+        _navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const SignupScreen()),
+          (r) => false,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Blink',
       debugShowCheckedModeBanner: false,
       theme: blinkTheme,

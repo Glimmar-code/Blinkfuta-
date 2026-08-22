@@ -5,8 +5,6 @@ import 'faculty_badge.dart';
 import 'rich_text_highlight.dart';
 import 'verified_mark.dart';
 
-String _resolveImageUrl(String url) => url.startsWith('http') ? url : unsplash(url);
-
 String fmtNum(int n) {
   if (n >= 1000000) {
     final v = n / 1000000;
@@ -56,12 +54,24 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
-  void _like() {
+  void _like() async {
     setState(() {
       widget.post.liked = !widget.post.liked;
       widget.post.likes += widget.post.liked ? 1 : -1;
     });
     _heartController.forward(from: 0);
+    
+    // Attempt to persist to Supabase
+    final success = await PostService.toggleLike(widget.post.id, widget.post.liked);
+    if (!success) {
+      // Revert if it fails
+      if (mounted) {
+        setState(() {
+          widget.post.liked = !widget.post.liked;
+          widget.post.likes += widget.post.liked ? 1 : -1;
+        });
+      }
+    }
   }
 
   @override
@@ -99,7 +109,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                         backgroundColor: BlinkColors.accent,
                         child: CircleAvatar(
                           radius: 17,
-                          backgroundImage: p.avatar.isNotEmpty ? NetworkImage(_resolveImageUrl(p.avatar)) : null,
+                          backgroundImage: p.avatar.isNotEmpty ? NetworkImage(resolveImageUrl(p.avatar)) : null,
                           child: p.avatar.isEmpty ? const Icon(Icons.person, size: 16) : null,
                         ),
                       ),
@@ -153,7 +163,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             p.image != null && p.image!.isNotEmpty
               ? AspectRatio(
                   aspectRatio: 4 / 5,
-                  child: Image.network(_resolveImageUrl(p.image!), width: double.infinity, fit: BoxFit.cover),
+                  child: Image.network(resolveImageUrl(p.image!), width: double.infinity, fit: BoxFit.cover),
                 )
               : const SizedBox.shrink(),
             Padding(

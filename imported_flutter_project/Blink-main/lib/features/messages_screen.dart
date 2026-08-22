@@ -1,19 +1,12 @@
 import 'package:flutter/material.dart';
 import '../config/theme.dart';
 import '../post_model.dart';
+import '../services/chat_service.dart';
 
 class MessagesScreen extends StatefulWidget {
   final bool isDark;
   final ValueChanged<String> onSnack;
-
-  /// When set, the screen opens directly into this user's conversation
-  /// instead of the chat list — used by the Market tab's DM icon. If no
-  /// existing thread matches, a fresh empty conversation is started so the
-  /// person can message a seller they've never chatted with before.
   final String? openWithUsername;
-
-  /// Notifies the parent (HomeScreen) whether a conversation is currently
-  /// open, so it can hide the bottom navigation bar while chatting.
   final ValueChanged<bool>? onConversationChanged;
 
   const MessagesScreen({
@@ -30,15 +23,29 @@ class MessagesScreen extends StatefulWidget {
 
 class _MessagesScreenState extends State<MessagesScreen> {
   Chat? _active;
-  late List<ChatMessage> _msgs;
+  List<ChatMessage> _msgs = [];
+  List<Chat> _chats = [];
+  bool _loadingChats = true;
+  bool _loadingMessages = false;
   final _input = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _loadChats();
+  }
+
+  Future<void> _loadChats() async {
+    setState(() => _loadingChats = true);
+    final fetched = await ChatService.fetchChats();
+    setState(() {
+      _chats = fetched;
+      _loadingChats = false;
+    });
+
     final username = widget.openWithUsername;
     if (username != null) {
-      final existing = chats.where((c) => c.user == username);
+      final existing = _chats.where((c) => c.user == username);
       final chat = existing.isNotEmpty
           ? existing.first
           : Chat(
@@ -48,29 +55,46 @@ class _MessagesScreenState extends State<MessagesScreen> {
               lastMsg: 'Say hello 👋',
               time: 'now',
               unread: 0,
-              online: false,
+              online: true,
             );
       _active = chat;
-      _msgs = existing.isNotEmpty ? mockThreadFor(chat) : [];
+      _loadMessages(chat.id);
       widget.onConversationChanged?.call(true);
+    }
+  }
+
+  Future<void> _loadMessages(int chatId) async {
+    setState(() => _loadingMessages = true);
+    final msgs = await ChatService.fetchMessages(chatId);
+    if (mounted) {
+      setState(() {
+        _msgs = msgs;
+        _loadingMessages = false;
+      });
     }
   }
 
   void _openChat(Chat chat) {
     setState(() {
       _active = chat;
-      _msgs = mockThreadFor(chat);
+      _msgs = [];
     });
     widget.onConversationChanged?.call(true);
+    _loadMessages(chat.id);
   }
 
-  void _send() {
+  Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _active == null) return;
+    
+    // Optimistic UI
     setState(() {
       _msgs.add(ChatMessage(id: DateTime.now().millisecondsSinceEpoch, from: 'me', text: text, time: 'now'));
       _input.clear();
     });
+    
+    // Save to DB
+    await ChatService.sendMessage(_active!.id, text);
   }
 
   @override
@@ -90,12 +114,16 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final muted = isDark ? BlinkColors.mutedDark : BlinkColors.mutedLight;
     final bg = isDark ? BlinkColors.bgDark : BlinkColors.bgLight;
 
+    if (_loadingChats) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
         Text('Messages', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: txt)),
         const SizedBox(height: 16),
-        ...chats.map((chat) => InkWell(
+        ..._chats.map((chat) => InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () => _openChat(chat),
               child: Padding(
@@ -105,7 +133,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        CircleAvatar(radius: 24, backgroundImage: NetworkImage(unsplash(chat.avatar))),
+                        CircleAvatar(radius: 24, backgroundImage: NetworkImage(resolveImageUrl(chat.avatar))),
                         if (chat.online)
                           Positioned(
                             bottom: 1,
@@ -176,7 +204,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
-              CircleAvatar(radius: 18, backgroundImage: NetworkImage(unsplash(active.avatar))),
+              CircleAvatar(radius: 18, backgroundImage: NetworkImage(resolveImageUrl(active.avatar))),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,39 +217,41 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ),
         ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: _msgs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, i) {
-              final m = _msgs[i];
-              final me = m.from == 'me';
-              return Align(
-                alignment: me ? Alignment.centerRight : Alignment.centerLeft,
-                child: Container(
-                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: me ? BlinkColors.accent : (isDark ? const Color(0x17FFFFFF) : const Color(0xFFE5E7EB)),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(me ? 18 : 4),
-                      bottomRight: Radius.circular(me ? 4 : 18),
+          child: _loadingMessages 
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _msgs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, i) {
+                  final m = _msgs[i];
+                  final me = m.from == 'me';
+                  return Align(
+                    alignment: me ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: me ? BlinkColors.accent : (isDark ? const Color(0x17FFFFFF) : const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(18),
+                          topRight: const Radius.circular(18),
+                          bottomLeft: Radius.circular(me ? 18 : 4),
+                          bottomRight: Radius.circular(me ? 4 : 18),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(m.text, style: TextStyle(fontSize: 13, color: me ? Colors.white : txt, height: 1.45)),
+                          const SizedBox(height: 4),
+                          Text(m.time, style: TextStyle(fontSize: 10, color: me ? Colors.white70 : muted)),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(m.text, style: TextStyle(fontSize: 13, color: me ? Colors.white : txt, height: 1.45)),
-                      const SizedBox(height: 4),
-                      Text(m.time, style: TextStyle(fontSize: 10, color: me ? Colors.white70 : muted)),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
         ),
         Container(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),

@@ -123,7 +123,11 @@ class _HomeScreenState extends State<HomeScreen> {
         profileAvatarUrl: current.avatarUrl,
         profileUsername: current.username,
       ),
-      SearchScreen(isDark: _isDark),
+      SearchScreen(
+        isDark: _isDark,
+        onProfile: _navToProfile,
+        onSnack: _showSnack,
+      ),
       LeaderboardScreen(isDark: _isDark),
       MarketScreen(isDark: _isDark, onSnack: _showSnack, onMessageSeller: _openChatWithSeller),
       MessagesScreen(

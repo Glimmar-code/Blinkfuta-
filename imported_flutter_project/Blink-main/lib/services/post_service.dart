@@ -106,6 +106,63 @@ class PostService {
     return channel;
   }
 
+  /// Search for posts by text or caption.
+  static Future<List<FeedPost>> searchPosts(String query) async {
+    if (query.isEmpty) return [];
+    try {
+      final resp = await _client
+          .from('feed_posts')
+          .select('''
+            id,
+            type,
+            faculty,
+            text,
+            gradient,
+            image_url,
+            caption,
+            like_count,
+            comment_count,
+            share_count,
+            view_count,
+            is_reel,
+            created_at,
+            profiles!user_id!inner (
+              username,
+              avatar_url
+            )
+          ''')
+          .or('text.ilike.%$query%,caption.ilike.%$query%')
+          .order('created_at', ascending: false)
+          .limit(50) as List<dynamic>;
+      return resp.map((r) => _mapFeedRow(r as Map<String, dynamic>)).toList();
+    } catch (e, st) {
+      debugPrint('PostService.searchPosts error: $e');
+      return [];
+    }
+  }
+
+  /// Update like status on a post
+  static Future<bool> toggleLike(String postId, bool isLiked) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return false;
+      
+      // We will try updating the like_count directly on feed_posts
+      // Read current count
+      final resp = await _client.from('feed_posts').select('like_count').eq('id', postId).maybeSingle();
+      if (resp != null) {
+        int current = (resp['like_count'] as num?)?.toInt() ?? 0;
+        current += isLiked ? 1 : -1;
+        if (current < 0) current = 0;
+        await _client.from('feed_posts').update({'like_count': current}).eq('id', postId);
+      }
+      return true; 
+    } catch (e) {
+      debugPrint('PostService.toggleLike error: $e');
+      return false;
+    }
+  }
+
   static FeedPost _mapFeedRow(Map<String, dynamic> r) {
     final typeString = (r['type'] as String?) ?? (r['kind'] as String?);
     final hasImages = (r['image_url'] as String?)?.isNotEmpty == true || (r['images'] as List<dynamic>?)?.isNotEmpty == true;

@@ -10,6 +10,8 @@ library models;
 
 String unsplash(String path) => 'https://images.unsplash.com/$path';
 
+String resolveImageUrl(String url) => url.startsWith('http') ? url : unsplash(url);
+
 // ─── Stories ────────────────────────────────────────────────────────────────
 
 class Story {

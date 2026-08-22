@@ -204,6 +204,22 @@ class ProfileService {
     }
   }
 
+  /// Search for profiles by username or full name.
+  static Future<List<UserProfile>> searchProfiles(String query) async {
+    if (query.isEmpty) return [];
+    try {
+      final resp = await _client
+          .from('profiles')
+          .select()
+          .or('username.ilike.%$query%,full_name.ilike.%$query%')
+          .limit(20) as List<dynamic>;
+      return resp.map((r) => _mapRowToProfile(r as Map<String, dynamic>)).toList();
+    } catch (e, st) {
+      debugPrint('ProfileService.searchProfiles error: $e');
+      return [];
+    }
+  }
+
   static UserProfile _mapRowToProfile(Map<String, dynamic> row) {
     // Map common fields; adapt to your table column names.
     final fullName = (row['full_name'] as String?) ?? (row['name'] as String?) ?? kDemoMyProfile.fullName;
